@@ -31,6 +31,9 @@
 </div>
 
 <script>
+  // PENGAMAN: Deklarasikan variabel kategori aktif agar tidak memicu ReferenceError
+  var activeCategory = activeCategory || "";
+
   // Fungsi pembuat tab kategori secara otomatis dan dinamis
   function buildCategoryTabs(categories) {
     var tabHtml = "";
