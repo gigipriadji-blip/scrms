@@ -75,26 +75,32 @@
     var elDisp = document.getElementById('displayBufferVendor');
     if(elDisp) elDisp.innerText = vendorBufferDays + " Hari";
 
-    // Pancing pembuatan tab kategori jika saat ini masih kosong melompong
+    // Ambil semua daftar kategori unik dari data global
+    var uniqueCategories = Array.from(new Set(globalData.map(function(item) { return item.kategori; }))).filter(Boolean).sort();
+
+    // PENGAMAN UTAMA: Jika activeCategory masih kosong atau tidak valid, otomatis tembak kategori pertama yang ada
+    if((!activeCategory || activeCategory === "") && uniqueCategories.length > 0) {
+        activeCategory = uniqueCategories[0];
+    }
+
+    // Gambar ulang tab kategori agar sinkron dengan yang aktif
     var tabsEl = document.getElementById('categoryTabs');
-    if(tabsEl && tabsEl.innerHTML === "") {
-        var uniqueCategories = Array.from(new Set(globalData.map(function(item) { return item.kategori; }))).sort();
-        if(uniqueCategories.length > 0) {
-            if(!activeCategory) activeCategory = uniqueCategories[0];
-            var tabHtml = "";
-            uniqueCategories.forEach(function(cat) {
-                var activeClass = cat === activeCategory ? 'active fw-bold' : '';
-                tabHtml += `<li class="nav-item"><button class="nav-link ${activeClass}" onclick="switchCategory('${cat}')" type="button" style="border:none; border-radius:8px; margin-right:5px;">${cat}</button></li>`;
-            });
-            tabsEl.innerHTML = tabHtml;
-        }
+    if(tabsEl && uniqueCategories.length > 0) {
+        var tabHtml = "";
+        uniqueCategories.forEach(function(cat) {
+            var activeClass = cat === activeCategory ? 'active fw-bold' : '';
+            tabHtml += `<li class="nav-item"><button class="nav-link ${activeClass}" onclick="switchCategory('${cat}')" type="button" style="border:none; border-radius:8px; margin-right:5px;">${cat}</button></li>`;
+        });
+        tabsEl.innerHTML = tabHtml;
     }
     
     var grouped = {};
     
     globalData.forEach(function(item) {
       if(!item || !item.sku) return;
-      if(item.kategori !== activeCategory) return; // Menyaring sesuai kategori tab aktif
+      
+      // Saring ketat berdasarkan tab kategori aktif saat ini
+      if(item.kategori !== activeCategory) return; 
       
       // Filter pencarian kata kunci SKU/Nama
       if(keyword !== "") {
@@ -112,11 +118,11 @@
           status: item.adsGlobal > 0 ? "Real Stock" : "Fake Stock", 
           adsGlobal: item.adsGlobal,
           timestamp: item.timestamp !== "-" ? item.timestamp : "Belum Update", 
-          isPriority: (item.sku === "GN-BAG-F09B" || item.sku === "HN-BAG-B05B"), // Otomatis tandai prioritas dari database sheets
+          isPriority: (item.sku === "GN-BAG-F09B" || item.sku === "HN-BAG-B05B"), // Menyesuaikan artikel prioritas bawaan
           sizes: []
         };
       }
-      // Memasukkan akumulasi data size
+      // Gabungkan size
       grouped[item.sku].sizes.push({ size: "ALL SIZE", qty: item.qty, tren: item.tren });
     });
     
