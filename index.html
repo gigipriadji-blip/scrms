@@ -30,60 +30,62 @@
     </div>
 
     <ul class="nav nav-tabs mb-4 pb-1 border-bottom border-2" id="mainTabs" role="tablist" style="font-size: 0.95rem;">
-          <li class="nav-item menu-internal"><button class="nav-link active" id="hero-tab" data-bs-toggle="tab" data-bs-target="#heroPage" type="button"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Hero Alert (Internal)</button></li>
-          <li class="nav-item menu-internal"><button class="nav-link" id="dash-tab" data-bs-toggle="tab" data-bs-target="#dashPage" type="button"><i class="fa-solid fa-mobile-screen me-2 text-primary"></i>Vendor Display</button></li>
-          <li class="nav-item menu-internal"><button class="nav-link" id="master-tab" data-bs-toggle="tab" data-bs-target="#masterPage" type="button"><i class="fa-solid fa-book-open me-2 text-success"></i>Master Katalog</button></li>
-          <li class="nav-item menu-internal"><button class="nav-link" id="manage-tab" data-bs-toggle="tab" data-bs-target="#managePage" type="button"><i class="fa-solid fa-sliders me-2 text-warning"></i>Manajemen Stok</button></li>
-          <li class="nav-item menu-internal"><button class="nav-link" id="vendor-manage-tab" data-bs-toggle="tab" data-bs-target="#vendorManagePage" type="button"><i class="fa-solid fa-users me-2 text-secondary"></i>Manajemen Vendor</button></li>
-          
-          <li class="nav-item menu-internal"><button class="nav-link" id="vendor-monitor-tab" data-bs-toggle="tab" data-bs-target="#vendorMonitorPage" type="button"><i class="fa-solid fa-chalkboard-user me-2 text-info"></i>Monitor Vendor</button></li>
-        </ul>
+      <li class="nav-item menu-internal"><button class="nav-link active" id="hero-tab" data-bs-toggle="tab" data-bs-target="#heroPage" type="button"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Hero Alert (Internal)</button></li>
+      <li class="nav-item menu-internal"><button class="nav-link" id="dash-tab" data-bs-toggle="tab" data-bs-target="#dashPage" type="button"><i class="fa-solid fa-mobile-screen me-2 text-primary"></i>Vendor Display</button></li>
+      <li class="nav-item menu-internal"><button class="nav-link" id="master-tab" data-bs-toggle="tab" data-bs-target="#masterPage" type="button"><i class="fa-solid fa-book-open me-2 text-success"></i>Master Katalog</button></li>
+      <li class="nav-item menu-internal"><button class="nav-link" id="manage-tab" data-bs-toggle="tab" data-bs-target="#masterPage" type="button"><i class="fa-solid fa-sliders me-2 text-warning"></i>Manajemen Stok</button></li>
+      <li class="nav-item menu-internal"><button class="nav-link" id="vendor-manage-tab" data-bs-toggle="tab" data-bs-target="#vendorManagePage" type="button"><i class="fa-solid fa-users me-2 text-secondary"></i>Manajemen Vendor</button></li>
+      <li class="nav-item menu-internal"><button class="nav-link" id="vendor-monitor-tab" data-bs-toggle="tab" data-bs-target="#vendorMonitorPage" type="button"><i class="fa-solid fa-chalkboard-user me-2 text-info"></i>Monitor Vendor</button></li>
+    </ul>
 
-    <<div class="tab-content">
-  <div id="content-Hero" class="tab-pane active"></div>
-  <div id="content-Vendor" class="tab-pane"></div>
-</div>
-
-<script>
-  // Fungsi untuk memuat file HTML dari GitHub ke dalam wadah
-  function loadPage(pageName, targetId) {
-    fetch(pageName + '.html')
-      .then(response => response.text())
-      .then(html => {
-        document.getElementById(targetId).innerHTML = html;
-        // Jika yang dimuat adalah halaman ViewHero, langsung ambil data dari Google
-        if(pageName === 'ViewHero') {
-          ambilDataDariGoogle();
-        }
-      })
-      .catch(err => console.error("Gagal memuat halaman: ", err));
-  }
-
-  // Panggil dan muat halaman saat aplikasi pertama kali dibuka
-  loadPage('ViewHero', 'content-Hero');
-  loadPage('ViewVendor', 'content-Vendor');
-
-  // Menggunakan JSONP untuk menembus proteksi CORS Google
-  function ambilDataDariGoogle() {
-    var urlWebApp = "https://script.google.com/macros/s/AKfycbwSvzVtT4Xrl01yVfY_05_VY45zRv3KWADNpt2x7YBnNJ1aa483TsWdYO9--TnSYt79/exec?callback=handleGoogleSheetsData";
-    
-    var script = document.createElement('script');
-    script.src = urlWebApp;
-    document.body.appendChild(script);
-  }
-
-  // Fungsi penampung data yang dipanggil otomatis oleh JSONP
-  function handleGoogleSheetsData(data) {
-    if (data.error) {
-      console.error("Gagal mengambil data dari Google:", data.error);
-      return;
-    }
-    console.log("Data sukses diambil dari Google Sheets via JSONP:", data);
-    globalData = data; 
-    loadDashboardData();
-  }
-</script>
+    <div class="tab-content">
+      <div id="content-Hero" class="tab-pane active"></div>
+      <div id="content-Vendor" class="tab-pane"></div>
     </div>
+
+    <script>
+      // Variabel Global Utama Aplikasi
+      var globalData = [];
+      var listKategoriGlobal = []; 
+      var activeCategory = ""; 
+      var groupedMaster = [];
+      var GLOBAL_VENDOR_BUFFER = 7; 
+
+      var APP_ROLE_MODE = "<?!= roleMode ?>";
+      var TARGET_VENDOR_USER = "<?!= targetVendorUser ?>";
+      var WEB_APP_BASE_URL = "";
+
+      // Fungsi modular pemuat halaman HTML eksternal menggunakan Promise
+      function loadPage(pageName, targetId) {
+        return fetch(pageName + '.html')
+          .then(response => response.text())
+          .then(html => {
+            var el = document.getElementById(targetId);
+            if(el) el.innerHTML = html;
+          })
+          .catch(err => console.error("Gagal memuat komponen halaman: " + pageName, err));
+      }
+
+      // Menggunakan JSONP untuk menembus proteksi CORS Google secara aman
+      function ambilDataDariGoogle() {
+        var urlWebApp = "https://script.google.com/macros/s/AKfycbwSvzVtT4Xrl01yVfY_05_VY45zRv3KWADNpt2x7YBnNJ1aa483TsWdYO9--TnSYt79/exec?callback=handleGoogleSheetsData";
+        
+        var script = document.createElement('script');
+        script.src = urlWebApp;
+        document.body.appendChild(script);
+      }
+
+      // Fungsi penampung data yang dipanggil otomatis oleh JSONP setelah data sukses didapat
+      function handleGoogleSheetsData(data) {
+        if (data.error) {
+          console.error("Gagal mengambil data dari Google:", data.error);
+          return;
+        }
+        console.log("Data sukses diambil dari Google Sheets via JSONP:", data);
+        globalData = data; 
+        loadDashboardData();
+      }
+    </script>
   </div>
 
   <?!= include('ViewMaster_Modal'); ?>
@@ -93,91 +95,88 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
-    var globalData = [];
-    var listKategoriGlobal = []; 
-    var activeCategory = ""; 
-    var groupedMaster = [];
-    var GLOBAL_VENDOR_BUFFER = 7; // FIX: Penyelamat angka batas aman vendor
-
-    var APP_ROLE_MODE = "<?!= roleMode ?>";
-    var TARGET_VENDOR_USER = "<?!= targetVendorUser ?>";
-    var WEB_APP_BASE_URL = "";
-
+    // Antrean Sinkronisasi: Tunggu semua HTML siap nempel, baru ambil data dari Google Sheets
     window.addEventListener('DOMContentLoaded', function() {
-    ambilDataDariGoogle();
-});
-
-// PROTEKSI VENDOR & FIX BLANK PAGE
-if (APP_ROLE_MODE === "vendor") {
-    document.querySelectorAll('.menu-internal').forEach(el => el.remove());
-    
-    var pHe = document.getElementById('heroPage'); if(pHe) pHe.remove();
-    var pMa = document.getElementById('masterPage'); if(pMa) pMa.remove();
-    var pMg = document.getElementById('managePage'); if(pMg) pMg.remove();
-    var pVm = document.getElementById('vendorManagePage'); if(pVm) pVm.remove();
-    var pVn = document.getElementById('vendorMonitorPage'); if(pVn) pVn.remove();
-    
-    var welcomeHeader = document.getElementById('vendorWelcomeHeader');
-    if(welcomeHeader) welcomeHeader.classList.remove('d-none');
-    
-    // FIX UTAMA: Paksa dashPage muncul tanpa mencari tombol tab yang sudah dihapus
-    var dashPage = document.getElementById('dashPage');
-    if(dashPage) dashPage.classList.add('show', 'active');
-}
-
-    function loadDashboardData() {
-    var artContainer = document.getElementById('articlesContainer');
-    if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3"></i>Menyusun data katalog...</div>';
-
-    if (globalData && globalData.length > 1) {
-        var headers = globalData[0];
-        var rows = globalData.slice(1);
+      Promise.all([
+        loadPage('ViewHero', 'content-Hero'),
+        loadPage('ViewVendor', 'content-Vendor')
+      ]).then(function() {
+        console.log("Semua komponen tampilan HTML siap. Memulai penarikan data...");
         
-        var articles = rows.map(function(row) {
-            var obj = {};
-            headers.forEach(function(header, index) {
-                var rawKey = header.toString().trim();
-                
-                // MAPPING PRESISI SENSITIF HURUF BESAR KECIL SESUAI VIEWHERO
-                if (rawKey === "Kode Artikel") {
-                    obj["sku"] = row[index];
-                } else if (rawKey === "Nama Artikel") {
-                    obj["nama"] = row[index];
-                } else if (rawKey === "Stok_Toko") {
-                    obj["qty"] = row[index];
-                } else if (rawKey === "Update_Terakhir") {
-                    obj["timestamp"] = row[index];
-                } else {
-                    // Sisa kolom disesuaikan huruf kecilnya
-                    var key = rawKey.toLowerCase();
-                    obj[key] = row[index];
-                }
-            });
-
-            // Menyisipkan variabel khusus CamelCase untuk filter Kritis/Aman
-            obj["isAktif"] = "Aktif"; // Dipaksa aktif karena masuk data artikel utama
-            obj["adsGlobal"] = parseFloat(obj["rata-rata penjualan harian"]) || 1; // Mengisi ADS Global dari kolom penjualan harian
-            obj["tren"] = "▲"; // Default indikator tren
+        // Pemicu proteksi tampilan khusus jika masuk sebagai Vendor
+        if (APP_ROLE_MODE === "vendor") {
+            document.querySelectorAll('.menu-internal').forEach(el => el.remove());
             
-            return obj;
-        });
-
-        // Simpan data hasil olahan ke memori global
-        globalData = articles;
-
-        // Picu otomatis fungsi penggambaran tabel di ViewHero.html jika fungsinya tersedia
-        if (typeof renderHeroAlert === "function") {
-            renderHeroAlert();
-            console.log("Tabel dashboard ViewHero sukses dirender!");
-        } else {
-            console.warn("Fungsi renderHeroAlert belum terdeteksi di ruang lingkup.");
+            var pHe = document.getElementById('heroPage'); if(pHe) pHe.remove();
+            var pMa = document.getElementById('masterPage'); if(pMa) pMa.remove();
+            var pMg = document.getElementById('managePage'); if(pMg) pMg.remove();
+            var pVm = document.getElementById('vendorManagePage'); if(pVm) pVm.remove();
+            var pVn = document.getElementById('vendorMonitorPage'); if(pVn) pVn.remove();
+            
+            var welcomeHeader = document.getElementById('vendorWelcomeHeader');
+            if(welcomeHeader) welcomeHeader.classList.remove('d-none');
+            
+            var dashPage = document.getElementById('dashPage');
+            if(dashPage) dashPage.classList.add('show', 'active');
         }
         
-    } else {
-        if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
-    }
-}   
-    
+        // Eksekusi utama penarikan data
+        ambilDataDariGoogle();
+      });
+    });
+
+    // Fungsi pemroses dan pemeta variabel dashboard utama
+    function loadDashboardData() {
+        var artContainer = document.getElementById('articlesContainer');
+        if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3"></i>Menyusun data katalog...</div>';
+
+        if (globalData && globalData.length > 1) {
+            var headers = globalData[0];
+            var rows = globalData.slice(1);
+            
+            var articles = rows.map(function(row) {
+                var obj = {};
+                headers.forEach(function(header, index) {
+                    var rawKey = header.toString().trim();
+                    
+                    // PEMETAAN VARIABEL SESUAI FORMAT YANG DIBUTUHKAN VIEWHERO
+                    if (rawKey === "Kode Artikel") {
+                        obj["sku"] = row[index];
+                    } else if (rawKey === "Nama Artikel") {
+                        obj["nama"] = row[index];
+                    } else if (rawKey === "Stok_Toko") {
+                        obj["qty"] = row[index];
+                    } else if (rawKey === "Update_Terakhir") {
+                        obj["timestamp"] = row[index];
+                    } else {
+                        var key = rawKey.toLowerCase();
+                        obj[key] = row[index];
+                    }
+                });
+
+                // Injeksi parameter khusus CamelCase untuk kebutuhan mesin penyaring ViewHero
+                obj["isAktif"] = "Aktif"; 
+                obj["adsGlobal"] = parseFloat(obj["rata-rata penjualan harian"]) || 0; 
+                obj["tren"] = "▲"; 
+                
+                return obj;
+            });
+
+            // Timpa memori data global menggunakan array objek yang sudah bersih
+            globalData = articles;
+
+            // Jalankan mesin penggambar tabel di modul ViewHero jika sudah menempel
+            if (typeof renderHeroAlert === "function") {
+                renderHeroAlert();
+                console.log("Tabel dashboard ViewHero sukses dirender!");
+            } else {
+                console.warn("Fungsi renderHeroAlert belum tersedia di ruang lingkup.");
+            }
+            
+        } else {
+            if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
+        }
+    }   
   </script>
 </body>
 </html>
