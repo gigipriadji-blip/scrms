@@ -139,42 +139,44 @@
                 headers.forEach(function(header, index) {
                     var rawKey = header.toString().trim();
                     
-                    // PEMETAAN VARIABEL SESUAI FORMAT YANG DIBUTUHKAN VIEWHERO
-                    if (rawKey === "Kode Artikel") {
+                    // PEMETAAN VARIABEL SESUAI DATA SHEET GOOGLE SENSITIF HURUF
+                    if (rawKey === "Kode") {
                         obj["sku"] = row[index];
-                    } else if (rawKey === "Nama Artikel") {
+                    } else if (rawKey === "Artikel") {
                         obj["nama"] = row[index];
                     } else if (rawKey === "Stok_Toko") {
                         obj["qty"] = row[index];
                     } else if (rawKey === "Update_Terakhir") {
                         obj["timestamp"] = row[index];
+                    } else if (rawKey === "Kategori") {
+                        obj["kategori"] = row[index]; // Mengunci Kategori Asli (T-Shirt, Jacket, Bag, dll)
                     } else {
                         var key = rawKey.toLowerCase();
                         obj[key] = row[index];
                     }
                 });
 
-                // Injeksi parameter khusus CamelCase untuk kebutuhan mesin penyaring ViewHero
-                obj["isAktif"] = "Aktif"; 
-                obj["adsGlobal"] = parseFloat(row[5]) || 1;
+                // Sinkronisasi variabel logika mesin penyaring sesuai data asli SCREAMOUS
+                obj["isAktif"] = obj["status"] || "Aktif"; 
+                obj["adsGlobal"] = parseFloat(row[5]) || 1; // Mengambil langsung dari indeks kolom rata-rata penjualan harian
                 obj["tren"] = "▲"; 
                 
                 return obj;
             });
 
-            // Timpa memori data global menggunakan array objek yang sudah bersih
+            // Set ke memori global aplikasi
             globalData = articles;
 
             // Jalankan mesin penggambar tabel
             renderHeroAlert();
-            console.log("Tabel dashboard ViewHero sukses dirender!");
+            console.log("Tabel dashboard ViewHero sukses dirender dengan UI Asli!");
             
         } else {
             if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
         }
     }
 
-    // FUNGSI PENGGAMBAR TABEL (DIPINDAHKAN KE INDEX AGAR SELALU TERSEDIA)
+    // FUNGSI PENGGAMBAR TABEL SESUAI STRUKTUR & VISUAL APLIKASI VERSI LAMA
     function filterHeroAlert() {
       var input = document.getElementById('searchHero');
       var btn = document.getElementById('btnClearSearchHero');
@@ -200,12 +202,15 @@
       var tbody = document.getElementById('heroAlertBody');
       if(!tbody) return;
       
-      var elDisp = document.getElementById('displayBufferHero');
-      var elInput = document.getElementById('inputBufferHero');
-      if (elDisp) {
-        var heroDays = (elInput && elInput.value) ? elInput.value : 14;
-        elDisp.innerText = heroDays + " Hari";
+      // Mengambil pengaturan target hari (Default ke 7 hari sesuai setelan DB Mas Gigi)
+      var targetHari = 7;
+      var bufferInput = document.getElementById('inputBufferHero');
+      if (bufferInput && bufferInput.value) {
+        targetHari = parseFloat(bufferInput.value) || 7;
       }
+      
+      var elDisp = document.getElementById('displayBufferHero');
+      if (elDisp) elDisp.innerText = targetHari + " Hari";
 
       var searchInput = document.getElementById('searchHero');
       var searchHero = searchInput ? searchInput.value.toLowerCase() : "";
@@ -213,23 +218,19 @@
       var katInput = document.getElementById('filterKategoriHero');
       var katFilterHero = katInput ? katInput.value : "";
       
-      var bufferInput = document.getElementById('inputBufferHero');
-      var targetHari = bufferInput ? (parseFloat(bufferInput.value) || 14) : 14;
-      
       var html = ""; var countTotal = 0; var countAman = 0; var countKritis = 0;
       var groupedData = {};
       
-      // Memproses pencetakan data dari globalData objek array yang sudah bersih
       globalData.forEach(function(item) {
         if (!item || !item.sku) return;
         var sku = item.sku;
         
         if (!groupedData[sku]) {
           groupedData[sku] = {
-            kategori: item.kategori,
+            kategori: item.kategori || "Uncategorized",
             sku: sku,
             nama: item.nama,
-            warna: item.warna,
+            warna: item.warna || "-",
             status: item.status,
             isAktif: item.isAktif,
             adsGlobal: parseFloat(item.adsGlobal) || 0,
@@ -240,7 +241,6 @@
         }
         
         groupedData[sku].totalQty += parseInt(item.qty) || 0;
-        groupedData[sku].sizes.push({ tren: item.tren });
         if(item.timestamp && item.timestamp !== "-") groupedData[sku].latestTimestamp = item.timestamp;
       });
 
@@ -266,7 +266,8 @@
       });
 
       Object.keys(groupedByCategory).sort().forEach(function(kategori) {
-        html += `<tr><td colspan="7" class="bg-light text-dark fw-bold text-uppercase border-bottom"><i class="fa-solid fa-tags me-2 text-primary"></i>Kategori: ${kategori}</td></tr>`;
+        html += `<tr><td colspan="7" class="bg-light text-dark fw-bold text-uppercase border-bottom py-2" style="font-size:0.85rem;"><i class="fa-solid fa-tags me-2 text-primary"></i>Kategori: ${kategori}</td></tr>`;
+        
         groupedByCategory[kategori].forEach(function(art) {
           countTotal++;
           var curQty = art.totalQty;
@@ -279,23 +280,34 @@
           var targetStokAman = curAds * targetHari;
           var selisih = curQty - targetStokAman; 
           
-          var rowClass = isKritis ? 'table-danger' : 'table-success';
-          var textStyle = isKritis ? 'text-danger fw-bold' : 'fw-bold text-success';
-          var iconStatus = isKritis ? '<i class="fa-solid fa-triangle-exclamation text-danger"></i> Kritis' : '<i class="fa-solid fa-check-circle text-success"></i> Aman';
+          // Mengembalikan Gaya Visual UI Lama: Baris Putih Bersih, Status Menggunakan Badge Bulat
+          var badgeStatus = isKritis 
+            ? `<span class="badge bg-danger px-2 py-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>Kritis</span>` 
+            : `<span class="badge bg-success px-2 py-1"><i class="fa-solid fa-check me-1"></i>Aman</span>`;
           
           var badgeSelisih = selisih < 0 
-            ? `<span class="badge bg-danger ms-3"><i class="fa-solid fa-minus me-1"></i>${Math.abs(selisih)} pcs</span>` 
-            : `<span class="badge bg-success ms-3"><i class="fa-solid fa-plus me-1"></i>+${selisih} pcs</span>`;
+            ? `<span class="badge bg-light text-danger border border-danger ms-2"><i class="fa-solid fa-arrow-down me-1"></i>${Math.abs(selisih)}</span>` 
+            : `<span class="badge bg-light text-success border border-success ms-2"><i class="fa-solid fa-arrow-up me-1"></i>+${selisih}</span>`;
+
+          // Format Waktu yang Rapi
+          var tglJam = art.latestTimestamp.split(" ");
+          var tglStr = tglJam[0] || "-";
+          var jamStr = tglJam[1] || "";
 
           html += `
-            <tr class="${rowClass}">
-              <td class="ps-3"><div class="fw-bold fs-6 text-dark">${art.nama}</div><div class="small text-muted font-monospace">${art.sku}</div></td>
-              <td><span class="badge bg-white text-dark border p-2">${art.warna || '-'}</span></td>
-              <td class="text-center fw-bold fs-4">${curQty}</td>
-              <td class="align-middle"><div class="d-flex align-items-center"><div class="text-primary fw-bold fs-5">${curAds} <span class="small fw-normal text-muted">/hr</span></div>${badgeSelisih}</div></td>
-              <td class="text-center ${textStyle} fs-5">${estimasiHari} Hr</td>
-              <td class="text-center fw-bold">${iconStatus}</td>
-              <td class="text-center align-middle"><span class="small text-muted">${art.latestTimestamp}</span></td>
+            <tr>
+              <td class="ps-3"><div class="fw-bold text-dark" style="font-size:0.9rem;">${art.nama}</div><div class="small text-muted font-monospace" style="font-size:0.75rem;">${art.sku}</div></td>
+              <td><span class="badge bg-white text-dark border p-2" style="font-size:0.8rem;">${art.warna || '-'}</span></td>
+              <td class="text-center fw-bold fs-5">${curQty} <span class="text-success small" style="font-size:0.75rem;">▲</span></td>
+              <td class="align-middle"><div class="d-flex align-items-center"><div class="text-dark fw-bold">${curAds} <span class="small fw-normal text-muted">/hr</span></div>${badgeSelisih}</div></td>
+              <td class="text-center fw-bold fs-5 text-dark">${estimasiHari} Hr</td>
+              <td class="text-center align-middle">${badgeStatus}</td>
+              <td class="text-center align-middle">
+                <div class="d-inline-flex align-items-center gap-1 px-2 py-1 bg-light rounded border text-nowrap" style="font-size: 0.75rem;">
+                  <span class="text-dark fw-bold"><i class="fa-regular fa-calendar-check text-muted me-1"></i>${tglStr}</span>
+                  ${jamStr ? `<span class="text-muted">|</span><span class="text-primary fw-bold"><i class="fa-regular fa-clock text-muted me-1"></i>${jamStr}</span>` : ''}
+                </div>
+              </td>
             </tr>
           `;
         });
