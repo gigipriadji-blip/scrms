@@ -488,11 +488,15 @@
           sizes: []
         };
       }
+      // PERBAIKAN MATRIKS SIZE + PEMBERSIHAN SINTAKS GANDA
+      var sizeMentah = item.size || item.Size || item.SIZE || item.ukuran || "";
+      var sizeFinal = (sizeMentah === "" || sizeMentah === "-") ? "ALL SIZE" : sizeMentah.toString().toUpperCase().trim();
+
       grouped[item.sku].sizes.push({ 
-  size: item.size || item.Size || item.ukuran || "ALL SIZE", 
-  qty: (typeof item.qty !== 'undefined' ? item.qty : (typeof item.Qty !== 'undefined' ? item.Qty : item.jumlah)) || 0, 
-  tren: item.tren || item.Tren || "" 
-});
+        size: sizeFinal, 
+        qty: (typeof item.qty !== 'undefined' ? item.qty : (typeof item.Qty !== 'undefined' ? item.Qty : item.jumlah)) || 0, 
+        tren: item.tren || item.Tren || "" 
+      });
     });
     
     var keys = Object.keys(grouped);
