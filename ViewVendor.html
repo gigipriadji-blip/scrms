@@ -123,8 +123,6 @@
     globalData.forEach(function(item) {
       if(!item || !item.sku) return;
       
-      // Saring ketat berdasarkan tab kategori aktif saat ini
-      if(item.kategori !== window.activeCategory) return; 
       
       // Filter pencarian kata kunci SKU/Nama
       if(keyword !== "") {
