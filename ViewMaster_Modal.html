@@ -1,0 +1,28 @@
+<div class="modal fade" id="modalHero" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 15px;">
+      <div class="modal-header border-0 pb-0"><h5 class="modal-title fw-bold text-primary"><i class="fa-solid fa-crown me-2"></i>Pengaturan Hero Alert</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body pt-2">
+        <input type="hidden" id="heroSkuHidden">
+        <div class="mb-3"><label class="fw-bold">Artikel Terpilih:</label><div class="form-control bg-light fs-6" id="heroNamaTampil" readonly></div></div>
+        <div class="mb-3"><label class="fw-bold">Total Stok Saat Ini (Semua Ukuran):</label><div class="form-control bg-light text-primary fw-bold fs-6" id="heroTotalQtyTampil" readonly></div></div>
+        <div class="mb-4"><label class="fw-bold text-dark">Input ADS Global (Pcs/Hari):</label><input type="number" id="heroAdsInput" class="form-control form-control-lg fw-bold border-primary"><small class="text-danger mt-2 d-block">*Set 0 untuk hapus dari Hero Alert.</small></div>
+        <button class="btn btn-primary w-100 fw-bold btn-lg" onclick="simpanHero()">SIMPAN PENGATURAN HERO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var modalHeroObj = null;
+  function bukaModalHero(sku) {
+    var match = groupedMaster.find(item => item.sku === sku); if(!match) return;
+    document.getElementById('heroSkuHidden').value = match.sku; document.getElementById('heroNamaTampil').innerText = match.nama;
+    document.getElementById('heroTotalQtyTampil').innerText = match.totalQty + " pcs"; document.getElementById('heroAdsInput').value = match.adsGlobal > 0 ? match.adsGlobal : '';
+    if(!modalHeroObj) { modalHeroObj = new bootstrap.Modal(document.getElementById('modalHero')); } modalHeroObj.show();
+  }
+  function simpanHero() {
+    var sku = document.getElementById('heroSkuHidden').value; var adsValue = parseFloat(document.getElementById('heroAdsInput').value) || 0;
+    modalHeroObj.hide(); google.script.run.withSuccessHandler(function(res) { Swal.fire('Tersimpan', res, 'success'); loadDashboardData(); }).setHeroADS(sku, adsValue);
+  }
+</script>

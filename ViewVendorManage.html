@@ -1,0 +1,248 @@
+<div class="tab-pane fade" id="vendorManagePage">
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="pc-card border-start border-primary border-5 sticky-top" style="top:20px;">
+        <h5 class="fw-bold text-dark mb-4" id="titleFormVendor"><i class="fa-solid fa-user-plus text-primary me-2"></i>Daftarkan Vendor Baru</h5>
+        
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Nama Perusahaan / Vendor</label>
+          <input type="text" id="vNama" class="form-control" placeholder="Contoh: PT. Sumber Garmen">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Username Akses (ID Link)</label>
+          <input type="text" id="vUser" class="form-control" placeholder="Contoh: vendorsumber" style="text-transform: lowercase;">
+          <small class="text-muted text-xs">Username ini akan menjadi URL unik untuk akses vendor.</small>
+        </div>
+        
+        <div class="mb-4">
+          <label class="form-label small fw-bold text-primary">Pilih Hak Akses Kategori:</label>
+          <div id="vendorKategoriCheckboxes" class="border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
+          </div>
+          <small class="text-muted text-xs d-block mt-1">*Vendor hanya bisa melihat kategori produk yang dicentang.</small>
+        </div>
+        
+        <button class="btn btn-primary btn-lg fw-bold w-100 shadow-sm" id="btnSaveVendor" onclick="eksekusiTambahVendor()">
+          <i class="fa-solid fa-user-check me-2"></i>SIMPAN AKUN VENDOR
+        </button>
+        <button class="btn btn-outline-secondary btn-lg fw-bold w-100 mt-2 shadow-sm d-none" id="btnCancelEditVendor" onclick="batalkanEditVendor()">
+          <i class="fa-solid fa-times me-2"></i>BATAL EDIT
+        </button>
+      </div>
+    </div>
+    
+    <div class="col-lg-8">
+      <div class="pc-card">
+        <h5 class="fw-bold text-dark mb-4"><i class="fa-solid fa-users text-secondary me-2"></i>Daftar Akun Vendor & Link Publik</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle table-master border text-center">
+            <thead class="table-dark">
+              <tr>
+                <th width="30%">Nama Vendor</th>
+                <th width="20%">Username Link</th>
+                <th width="25%">Cakupan Kategori</th>
+                <th width="25%">Tautan Publik & Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableVendorBody">
+              <tr><td colspan="4" class="text-muted py-4">Memuat data vendor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // State untuk melacak apakah sedang mode Tambah Baru atau Mode Edit
+  var isEditModeVendor = false;
+
+  function inisialisasiCheckboxAksesVendor() {
+    var checkContainer = document.getElementById('vendorKategoriCheckboxes');
+    if(!checkContainer) return;
+    checkContainer.innerHTML = "";
+    
+    if(!listKategoriGlobal || listKategoriGlobal.length === 0) {
+      checkContainer.innerHTML = "<span class='text-muted small'>Tidak ada kategori aktif. Sila Sync Data.</span>";
+      return;
+    }
+    
+    listKategoriGlobal.forEach(cat => {
+      var boxHtml = `
+        <div class="form-check mb-1 text-start">
+          <input class="form-check-input chk-vendor-akses" type="checkbox" value="${cat}" id="chk_vendor_${cat}">
+          <label class="form-check-label fw-bold text-dark" for="chk_vendor_${cat}">${cat}</label>
+        </div>
+      `;
+      checkContainer.insertAdjacentHTML('beforeend', boxHtml);
+    });
+  }
+
+  function renderVendorManageTable() {
+    var tbody = document.getElementById('tableVendorBody');
+    if(!tbody) return;
+    
+    google.script.run.withSuccessHandler(function(vendors) {
+      if(!vendors || vendors.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-muted py-4">Belum ada vendor terdaftar.</td></tr>`; return;
+      }
+      
+      var html = "";
+      vendors.forEach(v => {
+        var baseUrl = (typeof WEB_APP_BASE_URL !== "undefined" && WEB_APP_BASE_URL !== "") ? WEB_APP_BASE_URL : window.location.href.split('?')[0];
+        var linkPublikVendor = `${baseUrl}?page=vendor&user=${v.username}`;
+        var aksesStrArray = v.akses.join(','); // Digunakan untuk passing ke fungsi edit
+        
+        var badgeAksesHtml = "";
+        if(v.akses && Array.isArray(v.akses)) {
+          v.akses.forEach(a => { 
+            if(a.trim() !== "") badgeAksesHtml += `<span class="badge bg-secondary me-1 text-uppercase">${a}</span>`; 
+          });
+        }
+        
+        html += `
+          <tr>
+            <td class="text-start fw-bold fs-6">${v.nama}</td>
+            <td class="text-start"><strong class="text-primary font-monospace">${v.username}</strong></td>
+            <td class="text-start">${badgeAksesHtml}</td>
+            <td class="align-middle">
+              <button class="btn btn-sm btn-outline-primary fw-bold mb-1 w-100" onclick="siapkanEditVendor('${v.username}', '${v.nama}', '${aksesStrArray}')">
+                <i class="fa-solid fa-pen-to-square me-1"></i> Edit Akses
+              </button>
+              <button class="btn btn-sm btn-dark fw-bold mb-1 w-100" onclick="salinTautanVendor('${linkPublikVendor}')">
+                <i class="fa-solid fa-copy me-1"></i> Salin Tautan
+              </button>
+              <button class="btn btn-sm btn-outline-danger w-100" onclick="hapusVendor('${v.username}')">
+                <i class="fa-solid fa-trash-can me-1"></i> Hapus
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }).readVendorData();
+  }
+
+  // FUNGSI BARU: PERSIAPAN MODE EDIT
+  function siapkanEditVendor(username, nama, aksesStr) {
+    isEditModeVendor = true;
+    
+    // Isi data ke dalam form
+    document.getElementById('vNama').value = nama;
+    document.getElementById('vUser').value = username;
+    document.getElementById('vUser').disabled = true; // Kunci Username (ID) tidak boleh diedit
+    
+    // Centang kategori yang sudah dimiliki
+    var arrAkses = aksesStr.split(',');
+    document.querySelectorAll('.chk-vendor-akses').forEach(chk => {
+      chk.checked = arrAkses.includes(chk.value);
+    });
+    
+    // Ubah UI Form menjadi Mode Edit
+    document.getElementById('titleFormVendor').innerHTML = '<i class="fa-solid fa-pen-to-square text-warning me-2"></i>Edit Akses Vendor';
+    
+    var btnSave = document.getElementById('btnSaveVendor');
+    btnSave.innerHTML = '<i class="fa-solid fa-save me-2"></i>UPDATE AKUN VENDOR';
+    btnSave.classList.replace('btn-primary', 'btn-warning');
+    btnSave.classList.add('text-dark');
+    
+    document.getElementById('btnCancelEditVendor').classList.remove('d-none');
+    
+    // Auto-scroll ke atas (ke form)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // FUNGSI BARU: BATALKAN MODE EDIT DAN KEMBALI KE MODE TAMBAH
+  function batalkanEditVendor() {
+    isEditModeVendor = false;
+    
+    // Bersihkan form
+    document.getElementById('vNama').value = "";
+    document.getElementById('vUser').value = "";
+    document.getElementById('vUser').disabled = false;
+    document.querySelectorAll('.chk-vendor-akses').forEach(chk => chk.checked = false);
+    
+    // Kembalikan UI Form ke normal
+    document.getElementById('titleFormVendor').innerHTML = '<i class="fa-solid fa-user-plus text-primary me-2"></i>Daftarkan Vendor Baru';
+    
+    var btnSave = document.getElementById('btnSaveVendor');
+    btnSave.innerHTML = '<i class="fa-solid fa-user-check me-2"></i>SIMPAN AKUN VENDOR';
+    btnSave.classList.replace('btn-warning', 'btn-primary');
+    btnSave.classList.remove('text-dark');
+    
+    document.getElementById('btnCancelEditVendor').classList.add('d-none');
+  }
+
+  // MODIFIKASI: EKSEKUSI BISA UNTUK SIMPAN BARU / UPDATE
+  function eksekusiTambahVendor() {
+    var nama = document.getElementById('vNama').value;
+    var user = document.getElementById('vUser').value.toLowerCase().replace(/\s+/g, '');
+    
+    var listAkses = [];
+    document.querySelectorAll('.chk-vendor-akses:checked').forEach(chk => listAkses.push(chk.value));
+    
+    if(!nama || !user || listAkses.length === 0) {
+      Swal.fire('Gagal', 'Nama, Username, dan minimal 1 centang kategori wajib diisi!', 'error'); return;
+    }
+    
+    var btn = document.getElementById('btnSaveVendor');
+    btn.disabled = true; btn.innerText = "Memproses...";
+    
+    if (isEditModeVendor) {
+      // PROSES UPDATE DATA
+      google.script.run.withSuccessHandler(function(response) {
+        btn.disabled = false;
+        if(response.startsWith("ERROR")) {
+          Swal.fire('Gagal', response, 'error');
+          batalkanEditVendor();
+        } else {
+          Swal.fire({ icon: 'success', title: 'Berhasil!', text: response, timer: 2000, showConfirmButton: false });
+          batalkanEditVendor();
+          renderVendorManageTable();
+        }
+      }).updateVendorAccess(nama, user, listAkses);
+      
+    } else {
+      // PROSES SIMPAN BARU (NORMAL)
+      google.script.run.withSuccessHandler(function(response) {
+        btn.disabled = false; 
+        if(response.startsWith("ERROR")) {
+          Swal.fire('Gagal', response, 'error');
+          batalkanEditVendor(); // Reset status UI button
+        } else {
+          Swal.fire('Berhasil!', response, 'success');
+          batalkanEditVendor();
+          renderVendorManageTable();
+        }
+      }).saveNewVendor(nama, user, listAkses);
+    }
+  }
+
+  function salinTautanVendor(link) {
+    var textArea = document.createElement("textarea");
+    textArea.value = link;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      Swal.fire({ icon: 'success', title: 'Tautan Vendor Disalin!', text: 'Link siap dibagikan ke WhatsApp vendor.', timer: 2500, showConfirmButton: false });
+    } catch (err) {
+      console.error('Gagal menyalin: ', err);
+    }
+    document.body.removeChild(textArea);
+  }
+
+  function hapusVendor(username) {
+    Swal.fire({
+      title: 'Apakah Anda yakin?', text: "Akun vendor ini akan dihapus permanen!", icon: 'warning',
+      showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'Ya, Hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.fire('Terhapus!', res, 'success'); renderVendorManageTable();
+        }).deleteVendorAccount(username);
+      }
+    });
+  }
+</script>

@@ -1,0 +1,152 @@
+<div class="tab-pane fade" id="masterPage">
+  <div class="pc-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-list-check me-2 text-primary"></i>Katalog Master Artikel</h5>
+    </div>
+    <div class="row g-3 mb-4">
+      <!-- INPUT GROUP PENCARIAN MASTER DENGAN TOMBOL CLEAR (X) -->
+      <div class="col-md-8">
+        <div class="input-group input-group-lg">
+          <span class="input-group-text bg-light border-end-0" style="border-color: #dee2e6;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+          <input type="text" id="searchMaster" class="form-control border-start-0 border-end-0" placeholder="Cari nama artikel..." onkeyup="filterMasterCatalog()">
+          <button class="btn bg-light border border-start-0 text-muted" type="button" id="btnClearSearchMaster" onclick="clearSearchMaster()" style="display: none; border-color: #dee2e6; z-index: 4;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <select id="filterKategoriMaster" class="form-select form-select-lg" onchange="renderMasterCatalog()">
+          <option value="">-- Semua Kategori --</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle table-master border">
+        <thead>
+          <tr>
+            <th width="35%">Artikel & SKU</th>
+            <th width="15%">Warna</th>
+            <th width="15%" class="text-center">Total Stok</th>
+            <th width="15%" class="text-center">Status</th>
+            <th width="20%" class="text-center">Aksi Manajemen</th>
+          </tr>
+        </thead>
+        <tbody id="masterCatalogBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // FUNGSI UTAMA UNTUK FILTER CATALOG & LOGIKA TOMBOL (X)
+  function filterMasterCatalog() {
+    var input = document.getElementById('searchMaster');
+    var btn = document.getElementById('btnClearSearchMaster');
+    if (btn) {
+      if (input && input.value.trim() !== "") {
+        btn.style.setProperty('display', 'block', 'important');
+      } else {
+        btn.style.setProperty('display', 'none', 'important');
+      }
+    }
+    renderMasterCatalog();
+  }
+
+  // FUNGSI UNTUK RESET INPUT PENCARIAN MASTER SECARA INSTAN
+  function clearSearchMaster() {
+    var input = document.getElementById('searchMaster');
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+    var btn = document.getElementById('btnClearSearchMaster');
+    if (btn) btn.style.setProperty('display', 'none', 'important');
+    renderMasterCatalog();
+  }
+
+  function prepareMasterCatalogData() {
+    var grouped = {};
+    globalData.forEach(function(item) {
+      if (!grouped[item.sku]) {
+        grouped[item.sku] = { 
+          sku: item.sku, 
+          nama: item.nama, 
+          kategori: item.kategori, 
+          warna: item.warna, 
+          timestamp: item.timestamp, 
+          isAktif: item.isAktif, 
+          adsGlobal: item.adsGlobal, 
+          totalQty: 0, 
+          sizes: [] 
+        };
+      }
+      grouped[item.sku].totalQty += item.qty; 
+      grouped[item.sku].sizes.push({ tren: item.tren });
+    });
+    groupedMaster = Object.values(grouped); 
+    renderMasterCatalog();
+  }
+
+  function buildMasterCategoryDropdown() {
+    var filterKat = document.getElementById('filterKategoriMaster'); 
+    var filterKatHero = document.getElementById('filterKategoriHero');
+    if(filterKat) filterKat.innerHTML = '<option value="">-- Semua Kategori --</option>'; 
+    if(filterKatHero) filterKatHero.innerHTML = '<option value="">-- Semua Kategori Hero --</option>';
+    listKategoriGlobal.forEach(cat => { 
+      if(filterKat) filterKat.insertAdjacentHTML('beforeend', `<option value="${cat}">${cat}</option>`); 
+      if(filterKatHero) filterKatHero.insertAdjacentHTML('beforeend', `<option value="${cat}">${cat}</option>`); 
+    });
+  }
+
+  function renderMasterCatalog() {
+    var tbody = document.getElementById('masterCatalogBody'); 
+    if(!tbody) return;
+    
+    var searchInput = document.getElementById('searchMaster');
+    var search = searchInput ? searchInput.value.toLowerCase() : "";
+    var kategoriFilter = document.getElementById('filterKategoriMaster').value;
+    
+    var html = "";
+    var filtered = groupedMaster.filter(item => 
+      (item.nama.toLowerCase().includes(search) || item.sku.toLowerCase().includes(search)) && 
+      (kategoriFilter === "" || item.kategori === kategoriFilter)
+    );
+
+    filtered.forEach(function(art) {
+      var statusBadge = art.isAktif === "Aktif" 
+        ? `<span class="badge bg-success w-100">Aktif</span>` 
+        : `<span class="badge bg-secondary w-100">Non-Aktif</span>`;
+        
+      var heroBadge = art.adsGlobal > 0 
+        ? `<span class="badge bg-warning text-dark w-100 mt-1"><i class="fa-solid fa-crown"></i> Hero (ADS:${art.adsGlobal})</span>` 
+        : '';
+        
+      var btnToggleAktif = art.isAktif === "Aktif" 
+        ? `<button class="btn btn-sm btn-outline-secondary w-100 mb-2" onclick="ubahStatusMaster('${art.sku}', 'Non-Aktif')"><i class="fa-solid fa-eye-slash"></i> Non-Aktif</button>` 
+        : `<button class="btn btn-sm btn-success w-100 mb-2" onclick="ubahStatusMaster('${art.sku}', 'Aktif')"><i class="fa-solid fa-eye"></i> Aktifkan</button>`;
+        
+      var btnHeroText = art.adsGlobal > 0 ? '<i class="fa-solid fa-times"></i> Ubah ADS' : '<i class="fa-solid fa-star"></i> Jadi Hero';
+      
+      html += `
+        <tr>
+          <td><div class="fw-bold text-dark fs-6">${art.nama}</div><div class="text-muted font-monospace">${art.sku}</div></td>
+          <td><span class="badge bg-light text-dark border p-2">${art.warna || '-'}</span></td>
+          <td class="text-center fw-bold fs-5">${art.totalQty}</td>
+          <td class="text-center align-middle">${statusBadge}<br>${heroBadge}</td>
+          <td class="align-middle">
+            ${btnToggleAktif}
+            <button class="btn btn-sm ${art.adsGlobal > 0 ? 'btn-outline-danger' : 'btn-outline-primary'} w-100" onclick="bukaModalHero('${art.sku}')">${btnHeroText}</button>
+          </td>
+        </tr>
+      `;
+    });
+    
+    tbody.innerHTML = html.length > 0 ? html : '<tr><td colspan="5" class="text-center text-muted p-4">Data tidak ditemukan.</td></tr>';
+  }
+
+  function ubahStatusMaster(sku, statusBaru) { 
+    google.script.run.withSuccessHandler(function() { 
+      loadDashboardData(); 
+    }).toggleStatusAktif(sku, statusBaru); 
+  }
+</script>

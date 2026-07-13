@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+  <nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid px-4">
+      <span class="navbar-brand fw-bold fs-5"><i class="fa-solid fa-boxes-stacked me-2"></i> SCRMS Stock Alert</span>
+      <button class="btn btn-outline-light" onclick="loadDashboardData()"><i class="fa-solid fa-sync"></i> Sync Data</button>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 mt-4">
+    <div id="vendorWelcomeHeader" class="d-none mb-3 p-3 bg-light border-start border-primary border-4 rounded shadow-sm">
+      <div class="d-flex align-items-center">
+        <i class="fa-solid fa-handshake text-primary fa-2x me-3"></i>
+        <div>
+          <h6 class="mb-0 fw-bold text-muted">Selamat Datang di Portal Supply Chain</h6>
+          <h4 class="mb-0 fw-bold text-dark" id="txtNamaVendorWelcome">-</h4>
+        </div>
+      </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-4 pb-1 border-bottom border-2" id="mainTabs" role="tablist" style="font-size: 0.95rem;">
+          <li class="nav-item menu-internal"><button class="nav-link active" id="hero-tab" data-bs-toggle="tab" data-bs-target="#heroPage" type="button"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Hero Alert (Internal)</button></li>
+          <li class="nav-item menu-internal"><button class="nav-link" id="dash-tab" data-bs-toggle="tab" data-bs-target="#dashPage" type="button"><i class="fa-solid fa-mobile-screen me-2 text-primary"></i>Vendor Display</button></li>
+          <li class="nav-item menu-internal"><button class="nav-link" id="master-tab" data-bs-toggle="tab" data-bs-target="#masterPage" type="button"><i class="fa-solid fa-book-open me-2 text-success"></i>Master Katalog</button></li>
+          <li class="nav-item menu-internal"><button class="nav-link" id="manage-tab" data-bs-toggle="tab" data-bs-target="#managePage" type="button"><i class="fa-solid fa-sliders me-2 text-warning"></i>Manajemen Stok</button></li>
+          <li class="nav-item menu-internal"><button class="nav-link" id="vendor-manage-tab" data-bs-toggle="tab" data-bs-target="#vendorManagePage" type="button"><i class="fa-solid fa-users me-2 text-secondary"></i>Manajemen Vendor</button></li>
+          
+          <li class="nav-item menu-internal"><button class="nav-link" id="vendor-monitor-tab" data-bs-toggle="tab" data-bs-target="#vendorMonitorPage" type="button"><i class="fa-solid fa-chalkboard-user me-2 text-info"></i>Monitor Vendor</button></li>
+        </ul>
+
+    <div class="tab-content">
+      <?!= include('ViewHero'); ?>
+      <?!= include('ViewVendor'); ?>
+      <?!= include('ViewMaster'); ?>
+      <?!= include('ViewManage'); ?>
+      <?!= include('ViewVendorManage'); ?>
+      <?!= include('ViewVendorMonitor'); ?>
+    </div>
+  </div>
+
+  <?!= include('ViewMaster_Modal'); ?>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    var globalData = [];
+    var listKategoriGlobal = []; 
+    var activeCategory = ""; 
+    var groupedMaster = [];
+    var GLOBAL_VENDOR_BUFFER = 7; // FIX: Penyelamat angka batas aman vendor
+
+    var APP_ROLE_MODE = "<?!= roleMode ?>";
+    var TARGET_VENDOR_USER = "<?!= targetVendorUser ?>";
+    var WEB_APP_BASE_URL = "";
+
+    window.addEventListener('DOMContentLoaded', function() {
+      google.script.run.withSuccessHandler(function(url) {
+        WEB_APP_BASE_URL = url;
+      }).getWebAppUrl();
+
+      // PROTEKSI VENDOR & FIX BLANK PAGE
+      if (APP_ROLE_MODE === "vendor") {
+        document.querySelectorAll('.menu-internal').forEach(el => el.remove());
+        
+        var pHe = document.getElementById('heroPage'); if(pHe) pHe.remove();
+        var pMa = document.getElementById('masterPage'); if(pMa) pMa.remove();
+        var pMg = document.getElementById('managePage'); if(pMg) pMg.remove();
+        var pVm = document.getElementById('vendorManagePage'); if(pVm) pVm.remove();
+        var pVn = document.getElementById('vendorMonitorPage'); if(pVn) pVn.remove();
+       
+        var welcomeHeader = document.getElementById('vendorWelcomeHeader');
+        if(welcomeHeader) welcomeHeader.classList.remove('d-none');
+        
+        // FIX UTAMA: Paksa dashPage muncul tanpa mencari tombol tab yang sudah dihapus
+        var dashPage = document.getElementById('dashPage');
+        if(dashPage) dashPage.classList.add('show', 'active');
+      }
+      
+      loadDashboardData(); 
+    });
+
+    function loadDashboardData() {
+      var artContainer = document.getElementById('articlesContainer');
+      if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3"></i>Menyusun data katalog...</div>';
+
+      google.script.run.withSuccessHandler(function(response) {
+        // Fix Struktur Data Baru
+        globalData = response.articles || [];
+        // Simpan patokan hari ke memori agar tidak hilang
+        GLOBAL_VENDOR_BUFFER = (response.settings && response.settings.vendor) ? response.settings.vendor : 7;
+        
+        var elHero = document.getElementById('inputBufferHero');
+        if(elHero) elHero.value = response.settings.hero;
+        var elVendor = document.getElementById('inputBufferVendor');
+        if(elVendor) elVendor.value = response.settings.vendor;
+        
+        if(typeof updateUITextBuffers === "function") updateUITextBuffers(); 
+        
+        if(APP_ROLE_MODE === "vendor" && TARGET_VENDOR_USER !== "") {
+          google.script.run.withSuccessHandler(function(vendorList) {
+            var match = vendorList.find(v => v.username === TARGET_VENDOR_USER);
+            if(match) {
+              var txtWelcome = document.getElementById('txtNamaVendorWelcome');
+              if(txtWelcome) txtWelcome.innerText = match.nama.toUpperCase();
+
+              // Mencegah error jika terketik spasi pada hak akses di DB
+              listKategoriGlobal = match.akses.map(k => k.trim()).sort();
+              globalData = globalData.filter(item => listKategoriGlobal.includes(item.kategori));
+
+              var prioToggle = document.getElementById('filterPrioOnly');
+              if(prioToggle) prioToggle.checked = true;
+              
+              if(typeof buildCategoryTabs === "function") buildCategoryTabs(listKategoriGlobal);
+            } else {
+              if(artContainer) artContainer.innerHTML = '<div class="alert alert-danger">Tautan Vendor Tidak Valid atau Akun Telah Dinonaktifkan.</div>';
+            }
+          }).readVendorData();
+        } else {
+          var catSet = new Set();
+          globalData.forEach(item => { if(item.isAktif === "Aktif") catSet.add(item.kategori); });
+          listKategoriGlobal = Array.from(catSet).sort();
+          
+          if(typeof prepareMasterCatalogData === "function") prepareMasterCatalogData();
+          if(typeof buildCategoryTabs === "function") buildCategoryTabs(listKategoriGlobal); 
+          if(typeof buildKategoriDropdown === "function") buildKategoriDropdown(); 
+          if(typeof buildMasterCategoryDropdown === "function") buildMasterCategoryDropdown();
+          
+          if(typeof renderHeroAlert === "function") renderHeroAlert();
+          if(typeof renderCards === "function") renderCards();     
+          
+          if(typeof inisialisasiCheckboxAksesVendor === "function") inisialisasiCheckboxAksesVendor();
+          if(typeof renderVendorManageTable === "function") renderVendorManageTable();
+          if(typeof inisialisasiDropdownMonitorVendor === "function") inisialisasiDropdownMonitorVendor();
+        }
+      }).readData();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<div class="tab-pane fade" id="dashPage">
+  <div class="card p-3 mb-3 bg-white border-0 shadow-sm" style="border-radius:12px;">
+    <div class="row align-items-center g-2">
+      <div class="col-12 col-md-4">
+        <span class="small fw-bold text-muted">
+          Batas Aman Vendor: <span id="displayBufferVendor" class="text-dark border-bottom border-primary pb-1">- Hari</span>
+        </span>
+      </div>
+      <div class="col-12 col-md-8">
+        <div class="input-group mb-2">
+          <span class="input-group-text bg-white border-end-0" style="border-color: #dee2e6;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+          <input type="text" id="searchArt" class="form-control border-start-0 border-end-0 ps-0" placeholder="Cari SKU atau nama artikel aktif..." onkeyup="filterDisplay()">
+          <button class="btn bg-white border border-start-0 text-muted" type="button" id="btnClearSearchArt" onclick="clearSearchArt()" style="display: none; border-color: #dee2e6; z-index: 4;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="form-check form-switch pt-1">
+          <input class="form-check-input" type="checkbox" id="filterPrioOnly" onchange="filterDisplay()" style="transform: scale(1.2); margin-top: 0.2rem;">
+          <label class="form-check-label fw-bold ms-2 text-dark" for="filterPrioOnly">
+            <i class="fa-solid fa-star text-warning me-1"></i>Tampilkan Hanya Prioritas Produksi
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="sticky-tabs">
+    <ul class="nav nav-tabs mb-3 border-0" id="categoryTabs" role="tablist" style="font-size: 0.9rem;"></ul>
+  </div>
+  <div id="articlesContainer"></div>
+</div>
+
+<script>
+  function buildCategoryTabs(categories) {
+    var tabHtml = "";
+    if(categories.length > 0) {
+      if(!activeCategory || !categories.includes(activeCategory)) activeCategory = categories[0];
+      categories.forEach(function(cat) {
+        var activeClass = cat === activeCategory ? 'active fw-bold' : '';
+        tabHtml += `<li class="nav-item"><button class="nav-link ${activeClass}" onclick="switchCategory('${cat}')" type="button" style="border:none; border-radius:8px; margin-right:5px;">${cat}</button></li>`;
+      });
+    }
+    var tabsEl = document.getElementById('categoryTabs');
+    if(tabsEl) tabsEl.innerHTML = tabHtml;
+    renderCards();
+  }
+
+  function switchCategory(cat) {
+    activeCategory = cat;
+    buildCategoryTabs(listKategoriGlobal);
+  }
+
+  function updateUITextBuffers() {
+    var elDisp = document.getElementById('displayBufferVendor');
+    var elInput = document.getElementById('inputBufferVendor');
+    if(elDisp && elInput) elDisp.innerText = elInput.value + " Hari";
+  }
+
+  function renderCards() {
+    var container = document.getElementById('articlesContainer');
+    if(!container) return;
+    
+    var keyword = document.getElementById('searchArt') ? document.getElementById('searchArt').value.toLowerCase().trim() : "";
+    
+    // BUG FIX SILUMAN: Membaca dari variabel global, bukan dari DOM yang sudah dihapus
+    var vendorBufferDays = (typeof GLOBAL_VENDOR_BUFFER !== 'undefined') ? GLOBAL_VENDOR_BUFFER : 7;
+    
+    var filterPrioChecked = document.getElementById('filterPrioOnly') ? document.getElementById('filterPrioOnly').checked : false;
+    
+    var grouped = {};
+    // ... sisa kode di bawahnya biarkan sama persis ...
+    globalData.forEach(function(item) {
+      if(item.kategori !== activeCategory || item.isAktif !== "Aktif") return;
+      if(keyword !== "") {
+        var mSku = item.sku.toLowerCase().includes(keyword);
+        var mNama = item.nama.toLowerCase().includes(keyword);
+        if(!mSku && !mNama) return;
+      }
+      
+      if(!grouped[item.sku]) {
+        grouped[item.sku] = {
+          sku: item.sku, nama: item.nama, kategori: item.kategori,
+          warna: item.warna, status: item.status, adsGlobal: item.adsGlobal,
+          timestamp: item.timestamp, isPriority: item.isPriority, sizes: []
+        };
+      }
+      grouped[item.sku].sizes.push({ size: item.size, qty: item.qty, tren: item.tren });
+    });
+    
+    var keys = Object.keys(grouped);
+    var html = "";
+    var limitBatasKritis = 0;
+    
+    keys.forEach(function(key) {
+      var art = grouped[key];
+      if (filterPrioChecked && !art.isPriority) return;
+
+      var badgeClass = art.status.toLowerCase().includes('fake') ? 'badge-fake' : 'badge-real';
+      var adaSizeKritis = false;
+      var sizeBoxesHtml = "";
+      
+      limitBatasKritis = Math.ceil(art.adsGlobal * vendorBufferDays);
+      
+      art.sizes.forEach(function(sz) {
+        var isSizeKritis = sz.qty <= limitBatasKritis;
+        if(isSizeKritis) adaSizeKritis = true;
+        var trendIcon = sz.tren === '▲' ? '<i class="fa-solid fa-arrow-trend-up trend-up ms-1"></i>' : (sz.tren === '▼' ? '<i class="fa-solid fa-arrow-trend-down trend-down ms-1"></i>' : '');
+        
+        // BUG FIX: Hanya parsing SKU (tanpa Nama) untuk menghindari crash kutip HTML
+        sizeBoxesHtml += `
+          <div class="size-box ${isSizeKritis ? 'box-kurang' : ''}" onclick="lompatKeUpdateManual('${art.kategori}', '${art.sku}', '${sz.size}')">
+            <div class="size-name">${sz.size}</div>
+            <div class="size-qty">${sz.qty}${trendIcon}</div>
+          </div>
+        `;
+      });
+      
+      var badgePrioHtml = art.isPriority ? `<span class="badge bg-warning text-dark mb-1 me-2 shadow-sm border border-light"><i class="fa-solid fa-star me-1"></i>PRIORITAS</span>` : '';
+      var borderCardHtml = art.isPriority ? 'border border-warning border-3 bg-light' : '';
+      
+      var btnPriorityAction = "";
+      if (typeof APP_ROLE_MODE !== "undefined" && APP_ROLE_MODE !== "vendor") {
+        btnPriorityAction = `
+          <div class="mt-3 pt-3 border-top border-secondary-subtle">
+            <button class="btn btn-sm w-100 fw-bold shadow-sm ${art.isPriority ? 'btn-warning text-dark' : 'btn-outline-secondary'}" 
+                    onclick="eksekusiTogglePrioritas('${art.sku}', ${!art.isPriority})">
+              <i class="fa-solid fa-star me-1"></i> ${art.isPriority ? 'Hapus Status Prioritas' : 'Jadikan Prioritas Vendor'}
+            </button>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="article-card ${adaSizeKritis ? 'card-kurang' : ''} ${borderCardHtml}">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <span class="sku-text">${art.sku}</span>
+              <div class="article-title">${art.nama}</div>
+              <span class="text-muted small"><i class="fa-solid fa-palette me-1"></i> WRNA: ${art.warna}</span>
+            </div>
+            <div class="text-end">
+              ${badgePrioHtml}<span class="badge-custom ${badgeClass} mb-1">${art.status}</span>
+              <div class="text-muted text-xs mt-1">ADS: <strong>${art.adsGlobal}</strong></div>
+            </div>
+          </div>
+          <div class="size-container mt-3">${sizeBoxesHtml}</div>
+          ${btnPriorityAction}
+          
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2 ${btnPriorityAction === "" ? 'border-top border-light' : ''}">
+            <button class="btn btn-link text-primary text-xs fw-bold p-0 text-decoration-none" onclick="bukaLogHistory('${art.sku}')">
+              <i class="fa-solid fa-clock-rotate-left me-1"></i> 👁️ Lihat Log 5 Hari
+            </button>
+            <div class="text-muted text-xs">
+              <i class="fa-regular fa-clock me-1"></i>Update: ${art.timestamp}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    if (html === "") {
+      html = "<div class='text-center py-5 text-muted'><i class='fa-solid fa-box-open fa-2x mb-2'></i><br>Tidak ada artikel yang cocok dengan filter.</div>";
+    }
+    container.innerHTML = html;
+  }
+
+  function filterDisplay() {
+    var input = document.getElementById('searchArt');
+    var btn = document.getElementById('btnClearSearchArt');
+    if (btn) {
+      if (input && input.value.trim() !== "") {
+        btn.style.setProperty('display', 'block', 'important');
+      } else {
+        btn.style.setProperty('display', 'none', 'important');
+      }
+    }
+    renderCards();
+  }
+
+  function clearSearchArt() {
+    var input = document.getElementById('searchArt');
+    if (input) { input.value = ""; input.focus(); }
+    var btn = document.getElementById('btnClearSearchArt');
+    if (btn) btn.style.setProperty('display', 'none', 'important');
+    renderCards();
+  }
+  
+  function eksekusiTogglePrioritas(skuTarget, statusPrioritasBaru) {
+    Swal.fire({ title: 'Memperbarui Prioritas...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      globalData.forEach(function(item) { if(item.sku === skuTarget) item.isPriority = statusPrioritasBaru; });
+      renderCards();
+    }).setPriorityStatus(skuTarget, statusPrioritasBaru);
+  }
+
+  function bukaLogHistory(sku) {
+    // Cari nama artikel secara aman dari belakang layar
+    var matchArt = globalData.find(function(i) { return i.sku === sku; });
+    var namaArtikel = matchArt ? matchArt.nama : sku;
+
+    Swal.fire({
+      title: 'Memuat Riwayat Stok...',
+      html: '<div class="py-3 text-center"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i></div>',
+      showConfirmButton: false,
+      allowOutsideClick: true
+    });
+    
+    google.script.run.withSuccessHandler(function(logs) {
+      if (!logs || logs.length === 0) {
+        Swal.fire({
+          title: 'Riwayat Stok',
+          html: `<div class="text-muted py-3"><i class="fa-solid fa-clock-rotate-left fa-2x mb-2 d-block text-secondary"></i>Belum ada riwayat pergerakan stok untuk artikel <strong>${namaArtikel}</strong> dalam 5 hari terakhir.</div>`,
+          confirmButtonText: 'Tutup',
+          confirmButtonColor: '#6c757d'
+        });
+        return;
+      }
+      
+      var tableRows = "";
+      logs.forEach(function(log) {
+        var badgeColor = log.perubahan.includes('+') ? 'text-success' : 'text-danger';
+        tableRows += `
+          <tr>
+            <td class="small font-monospace text-start">${log.timestamp}</td>
+            <td class="fw-bold">${log.size}</td>
+            <td class="text-secondary font-monospace">${log.oldQty} → ${log.newQty}</td>
+            <td class="fw-bold ${badgeColor} font-monospace">${log.perubahan}</td>
+            <td class="small text-muted text-start">${log.operator}</td>
+          </tr>
+        `;
+      });
+      
+      var tableHtml = `
+        <div class="text-start mb-2 small text-muted">SKU: <strong class="text-dark font-monospace">${sku}</strong></div>
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+          <table class="table table-sm table-bordered align-middle text-center mb-0" style="font-size: 0.85rem;">
+            <thead class="table-dark sticky-top" style="z-index:1;">
+              <tr><th>Waktu</th><th>Size</th><th>Alur Stok</th><th>Perubahan</th><th>Operator</th></tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      `;
+      
+      Swal.fire({
+        title: `<span style="font-size:1.1rem;">Log Pergerakan: <strong>${namaArtikel}</strong></span>`,
+        html: tableHtml,
+        confirmButtonText: 'Tutup Halaman',
+        confirmButtonColor: '#212529',
+        width: '580px'
+      });
+    }).getStockLog(sku);
+  }
+
+  function lompatKeUpdateManual(kategori, sku, size) {
+    if (typeof APP_ROLE_MODE !== "undefined" && APP_ROLE_MODE === "vendor") return; 
+    
+    var tabManage = document.getElementById('manage-tab');
+    if (tabManage) {
+      tabManage.click();
+      var selectKat = document.getElementById('controlKategori');
+      if (selectKat) {
+        selectKat.value = kategori;
+        if(typeof aksiKategoriSatuanBerubah === "function") aksiKategoriSatuanBerubah();
+        setTimeout(function() {
+          var inputCombo = document.getElementById('comboInputArtikel');
+          if (inputCombo && typeof localArticlesList !== "undefined") {
+            // BUG FIX: Saring dengan SKU, bukan Nama
+            var matches = localArticlesList.filter(item => item.sku === sku);
+            if (matches.length > 0) {
+              if(typeof pilihArtikelDariCombo === "function") pilihArtikelDariCombo(matches[0].sku);
+              setTimeout(function() {
+                var inputs = document.querySelectorAll('.input-matrix-qty');
+                inputs.forEach(inp => {
+                  if (inp.getAttribute('data-size') === size) {
+                    inp.style.backgroundColor = '#fff3cd';
+                    inp.focus();
+                    inp.select();
+                  }
+                });
+              }, 300);
+            }
+          }
+        }, 300);
+      }
+    }
+  }
+</script>

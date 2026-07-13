@@ -1,0 +1,502 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<div class="tab-pane fade" id="vendorMonitorPage">
+  <div class="pc-card mb-4 border-start border-info border-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h4 class="mb-1 fw-bold text-dark"><i class="fa-solid fa-chalkboard-user text-info me-2"></i>Monitor Vendor (Mode Batch Save)</h4>
+        <span class="text-muted small">Pilih dan kumpulkan artikel menggunakan tombol (+), lalu klik "Simpan Perubahan ke Cloud" untuk mengamankan data ke database Google Sheets.</span>
+      </div>
+    </div>
+
+    <div class="card bg-light border-0 shadow-sm p-3 mb-4">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-primary">1. Buka Kotretan Vendor</label>
+          <select id="monVendor" class="form-select fw-bold border-primary" onchange="aksiMonVendorBerubah()">
+            <option value="">-- Pilih Vendor --</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold">2. Filter Kategori</label>
+          <select id="monKategori" class="form-select" disabled onchange="aksiMonKategoriAtauStatusBerubah()">
+            <option value="">-- Pilih Kategori --</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold">3. Filter Tipe (Pencarian)</label>
+          <select id="monStatus" class="form-select" disabled onchange="aksiMonKategoriAtauStatusBerubah()">
+            <option value="Semua">Semua Stok</option>
+            <option value="Real Stock">Real Stock</option>
+            <option value="Fake Stock">Fake Stock</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-bold">4. Pilih Artikel</label>
+          <select id="monArtikel" class="form-select font-monospace" disabled>
+            <option value="">-- Pilih Artikel --</option>
+          </select>
+        </div>
+        <div class="col-md-1">
+          <button class="btn btn-primary w-100 fw-bold" id="btnTambahMon" disabled onclick="tambahkanKeKotretanLokal()">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-3 mb-3 bg-white border shadow-sm">
+      <div class="row g-3 align-items-center">
+        <div class="col-12 col-lg-7 d-flex flex-wrap align-items-center gap-2">
+          <div class="input-group input-group-sm w-auto">
+            <span class="input-group-text bg-light fw-bold text-muted">Tipe Stok:</span>
+            <select id="viewFilterStatus" class="form-select form-select-sm fw-bold" onchange="renderTabelKotretan()" disabled>
+              <option value="Semua">Semua Tipe</option>
+              <option value="Real Stock">Real Stock</option>
+              <option value="Fake Stock">Fake Stock</option>
+            </select>
+          </div>
+          
+          <div class="input-group input-group-sm flex-grow-1" style="max-width: 320px;">
+            <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+            <input type="text" id="searchTableText" class="form-control border-start-0 border-end-0" placeholder="Cari nama/SKU di dalam tabel..." onkeyup="filterTabelInternal()" disabled>
+            <button class="btn bg-light border border-start-0 text-muted" type="button" id="btnClearSearchTable" onclick="clearSearchTableInternal()" style="display: none; z-index: 4;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <button class="btn btn-xs btn-outline-danger fw-bold py-1" onclick="kosongkanKotretanLokal()" id="btnResetKotretan" disabled>
+            <i class="fa-solid fa-trash-can me-1"></i>Reset Layar
+          </button>
+        </div>
+
+        <div class="col-12 col-lg-5 text-lg-end d-flex justify-content-lg-end flex-wrap gap-2">
+          <button class="btn btn-primary btn-sm fw-bold shadow border border-light" onclick="simpanBatchKotretanKeCloud()" id="btnSaveCloud" disabled>
+            <i class="fa-solid fa-cloud-arrow-up me-1"></i>SIMPAN PERUBAHAN KE CLOUD
+          </button>
+          <button class="btn btn-success btn-sm fw-bold shadow-sm" onclick="exportMonitorToExcel()" id="btnExportEx" disabled>
+            <i class="fa-solid fa-file-excel me-1"></i>EXCEL
+          </button>
+          <button class="btn btn-danger btn-sm fw-bold shadow-sm" onclick="exportMonitorToPDF()" id="btnExportPdf" disabled>
+            <i class="fa-solid fa-file-pdf me-1"></i>PDF
+          </button>
+        </div>
+      </div>
+      <div class="text-muted text-xs mt-2" id="labelActiveVendor"><i class="fa-solid fa-info-circle me-1"></i>Silakan buka nama vendor untuk mengaktifkan workspace kotretan.</div>
+    </div>
+
+    <div class="table-responsive rounded border shadow-sm bg-white">
+      <table class="table table-hover align-middle border mb-0 text-center" style="font-size:0.85rem;" id="tableKotretan">
+        <thead class="table-dark">
+          <tr>
+            <th width="12%">Kategori</th>
+            <th width="20%">Nama Artikel</th>
+            <th width="10%">SKU</th>
+            <th width="10%">Tipe & Warna</th>
+            <th width="6%">S / 28</th>
+            <th width="6%">M / 30</th>
+            <th width="6%">L / 32</th>
+            <th width="6%">XL / 34</th>
+            <th width="6%">XXL</th>
+            <th width="8%">Total</th>
+            <th width="5%" class="exclude-export">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyKotretan">
+          <tr id="rowKosong"><td colspan="11" class="text-muted py-5"><i class="fa-solid fa-users-rectangle fa-2x mb-2 text-secondary"></i><br>Silakan pilih Vendor di atas untuk membuka area kotretannya.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  var monitorActiveAksesKategori = [];
+  var globalKotretanDbMap = {}; // Penyimpanan lokal sementara per vendor workspace sebelum di-commit ke Sheets
+  var activeVendorUser = "";
+  var activeVendorName = "";
+
+  function inisialisasiDropdownMonitorVendor() {
+    var selectVendor = document.getElementById('monVendor');
+    if(!selectVendor) return;
+    selectVendor.innerHTML = '<option value="">-- Pilih Vendor --</option>';
+    
+    google.script.run.withSuccessHandler(function(dbMap) {
+      globalKotretanDbMap = dbMap || {};
+      
+      google.script.run.withSuccessHandler(function(vendors) {
+        selectVendor.innerHTML = '<option value="">-- Pilih Vendor --</option>';
+        if(!vendors || vendors.length === 0) return;
+        vendors.sort((a,b) => a.nama.localeCompare(b.nama)).forEach(v => {
+          selectVendor.insertAdjacentHTML('beforeend', `<option value="${v.username}" data-nama="${v.nama.toUpperCase()}" data-akses="${v.akses.join(',')}">${v.nama.toUpperCase()}</option>`);
+        });
+      }).readVendorData();
+      
+    }).loadSavedKotretanDb();
+  }
+
+  function aksiMonVendorBerubah() {
+    var selectVendor = document.getElementById('monVendor');
+    var selectKat = document.getElementById('monKategori');
+    var selectStatus = document.getElementById('monStatus');
+    var selectArt = document.getElementById('monArtikel');
+    var btnTambah = document.getElementById('btnTambahMon');
+    
+    selectKat.innerHTML = '<option value="">-- Pilih Kategori --</option>';
+    selectKat.disabled = true;
+    selectStatus.disabled = true;
+    selectStatus.value = "Semua";
+    selectArt.innerHTML = '<option value="">-- Pilih Artikel --</option>';
+    selectArt.disabled = true;
+    btnTambah.disabled = true;
+    monitorActiveAksesKategori = [];
+    activeVendorUser = selectVendor.value;
+
+    clearSearchTableInternal();
+
+    if (activeVendorUser === "") {
+      activeVendorName = "";
+      document.getElementById('labelActiveVendor').innerHTML = '<i class="fa-solid fa-info-circle me-1"></i>Silakan buka nama vendor untuk mengaktifkan workspace kotretan.';
+      document.getElementById('viewFilterStatus').disabled = true;
+      document.getElementById('searchTableText').disabled = true;
+      document.getElementById('btnResetKotretan').disabled = true;
+      document.getElementById('btnSaveCloud').disabled = true;
+      document.getElementById('btnExportEx').disabled = true;
+      document.getElementById('btnExportPdf').disabled = true;
+      document.getElementById('tbodyKotretan').innerHTML = `<tr><td colspan="11" class="text-muted py-5"><i class="fa-solid fa-users-rectangle fa-2x mb-2 text-secondary"></i><br>Silakan pilih Vendor di atas untuk membuka area kotretannya.</td></tr>`;
+      return;
+    }
+    
+    var selectedOpt = selectVendor.options[selectVendor.selectedIndex];
+    var aksesStr = selectedOpt.getAttribute('data-akses');
+    activeVendorName = selectedOpt.getAttribute('data-nama');
+    
+    document.getElementById('labelActiveVendor').innerHTML = `<i class="fa-solid fa-folder-open text-primary me-1"></i>Workspace Aktif: <strong class="text-dark">${activeVendorName}</strong>`;
+    document.getElementById('viewFilterStatus').disabled = false;
+    document.getElementById('searchTableText').disabled = false;
+    document.getElementById('btnResetKotretan').disabled = false;
+    document.getElementById('btnSaveCloud').disabled = false;
+    document.getElementById('btnExportEx').disabled = false;
+    document.getElementById('btnExportPdf').disabled = false;
+
+    if (!globalKotretanDbMap[activeVendorUser]) {
+      globalKotretanDbMap[activeVendorUser] = [];
+    }
+    
+    if (aksesStr && aksesStr.trim() !== "") {
+      monitorActiveAksesKategori = aksesStr.split(',').sort();
+      selectKat.disabled = false;
+      monitorActiveAksesKategori.forEach(cat => { selectKat.insertAdjacentHTML('beforeend', `<option value="${cat}">${cat}</option>`); });
+    }
+
+    renderTabelKotretan();
+  }
+
+  function aksiMonKategoriAtauStatusBerubah() {
+    var selectKat = document.getElementById('monKategori').value;
+    var selectStatus = document.getElementById('monStatus').value;
+    var selectArt = document.getElementById('monArtikel');
+    var btn = document.getElementById('btnTambahMon');
+    selectArt.innerHTML = '<option value="">-- Pilih Artikel --</option>';
+    
+    if (selectKat === "") {
+      document.getElementById('monStatus').disabled = true;
+      selectArt.disabled = true;
+      btn.disabled = true;
+      return;
+    }
+    document.getElementById('monStatus').disabled = false;
+
+    var uniqueArticles = {};
+    globalData.forEach(item => {
+      if (item.isAktif === "Aktif" && item.kategori === selectKat) {
+        if (selectStatus === "Semua" || item.status === selectStatus) {
+          uniqueArticles[item.sku] = `${item.nama} [${item.sku}]`;
+        }
+      }
+    });
+
+    var keys = Object.keys(uniqueArticles).sort();
+    if (keys.length > 0) {
+      keys.forEach(sku => { selectArt.insertAdjacentHTML('beforeend', `<option value="${sku}">${uniqueArticles[sku]}</option>`); });
+      selectArt.disabled = false;
+      btn.disabled = false;
+    } else {
+      selectArt.innerHTML = '<option value="">(Tidak ada artikel cocok)</option>';
+      selectArt.disabled = true;
+      btn.disabled = true;
+    }
+  }
+
+  // MODIFIKASI: HANYA TAMBAH KE LAYAR LAYANAN LOKAL (BELUM KE DB GOOGLE)
+  function tambahkanKeKotretanLokal() {
+    if (!activeVendorUser) return;
+    var skuTarget = document.getElementById('monArtikel').value;
+    if(!skuTarget) return;
+
+    var currentSavedSkus = globalKotretanDbMap[activeVendorUser] || [];
+    if (currentSavedSkus.includes(skuTarget)) {
+      Swal.fire('Peringatan', 'Artikel ini sudah masuk di daftar kotretan layar.', 'warning');
+      return;
+    }
+
+    globalKotretanDbMap[activeVendorUser].push(skuTarget);
+    renderTabelKotretan();
+    
+    // Notifikasi toast ringan
+    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+    Toast.fire({ icon: 'success', title: 'Ditambahkan ke daftar (Belum disimpan)' });
+  }
+
+  // MODIFIKASI: HANYA HAPUS DARI TAMPILAN LAYAR LOKAL
+  function hapusDariKotretan(sku) {
+    if (!activeVendorUser) return;
+    globalKotretanDbMap[activeVendorUser] = (globalKotretanDbMap[activeVendorUser] || []).filter(s => s !== sku);
+    renderTabelKotretan();
+  }
+
+  function kosongkanKotretanLokal() {
+    if (!activeVendorUser) return;
+    globalKotretanDbMap[activeVendorUser] = [];
+    clearSearchTableInternal();
+    renderTabelKotretan();
+  }
+
+  // FITUR BARU: PROSES BATCH SAVE SEMUA DATA WORKSPACE SEKALIGUS KE GOOGLE SHEETS
+  function simpanBatchKotretanKeCloud() {
+    if (!activeVendorUser) return;
+    
+    var targetSkus = globalKotretanDbMap[activeVendorUser] || [];
+    
+    Swal.fire({
+      title: 'Simpan ke Google Sheets?',
+      text: `Menyimpan ${targetSkus.length} data artikel ke cloud untuk vendor ${activeVendorName}. Susunan target lama di DB otomatis digantikan.`,
+      icon: 'question', showCancelButton: true, confirmButtonColor: '#0d6efd', confirmButtonText: 'Ya, Simpan ke Cloud!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({ title: 'Menyinkronkan Cloud Database...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+        
+        // Bersihkan dulu data lama di cloud khusus vendor ini
+        google.script.run.withSuccessHandler(function() {
+          
+          if (targetSkus.length === 0) {
+            Swal.fire('Berhasil', 'Database kotretan vendor berhasil dikosongkan di cloud!', 'success');
+            renderTabelKotretan();
+            return;
+          }
+          
+          // Tembak beruntun memasukkan data baru
+          var savePromises = [];
+          var completedCount = 0;
+          
+          targetSkus.forEach(sku => {
+            google.script.run.withSuccessHandler(function() {
+              completedCount++;
+              if (completedCount === targetSkus.length) {
+                Swal.fire('Sukses Tersimpan!', `Berhasil mengamankan data target ${targetSkus.length} artikel ke Google Sheets secara permanen!`, 'success');
+                renderTabelKotretan();
+              }
+            }).saveArticleToKotretanDb(activeVendorUser, sku);
+          });
+          
+        }).clearVendorKotretanDb(activeVendorUser);
+      }
+    });
+  }
+
+  function buildFilteredObjectsList() {
+    if (!activeVendorUser) return [];
+    var savedSkus = globalKotretanDbMap[activeVendorUser] || [];
+    var objectsList = [];
+
+    savedSkus.forEach(sku => {
+      var targetItems = globalData.filter(i => i.sku === sku);
+      if(targetItems.length === 0) return;
+
+      var baseArt = targetItems[0];
+      var rowObj = {
+        kategori: baseArt.kategori, nama: baseArt.nama, sku: baseArt.sku,
+        status: baseArt.status, warna: baseArt.warna,
+        s_28: 0, m_30: 0, l_32: 0, xl_34: 0, xxl: 0, allsize: 0, isBag: false, total: 0
+      };
+
+      targetItems.forEach(item => {
+        var sz = item.size.toUpperCase().trim();
+        var qty = parseInt(item.qty) || 0;
+        rowObj.total += qty;
+        if (sz === "S" || sz === "28") rowObj.s_28 = qty;
+        else if (sz === "M" || sz === "30") rowObj.m_30 = qty;
+        else if (sz === "L" || sz === "32") rowObj.l_32 = qty;
+        else if (sz === "XL" || sz === "34") rowObj.xl_34 = qty;
+        else if (sz === "XXL") rowObj.xxl = qty;
+        else { rowObj.allsize = qty; rowObj.isBag = true; }
+      });
+      objectsList.push(rowObj);
+    });
+    return objectsList;
+  }
+
+  function renderTabelKotretan() {
+    var tbody = document.getElementById('tbodyKotretan');
+    if (!activeVendorUser) return;
+    
+    var currentData = buildFilteredObjectsList();
+    var viewFilter = document.getElementById('viewFilterStatus').value;
+    var searchKeyword = document.getElementById('searchTableText') ? document.getElementById('searchTableText').value.toLowerCase().trim() : "";
+
+    // MODIFIKASI: KAWINKAN FILTER TIPE STOK DENGAN TEXT FILTER PENCARIAN
+    var filteredData = currentData.filter(r => {
+      var matchStatus = (viewFilter === "Semua" || r.status === viewFilter);
+      var matchText = true;
+      if (searchKeyword !== "") {
+        var mSku = r.sku.toLowerCase().includes(searchKeyword);
+        var mNama = r.nama.toLowerCase().includes(searchKeyword);
+        matchText = (mSku || mNama);
+      }
+      return matchStatus && matchText;
+    });
+
+    if (currentData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" class="text-muted py-5"><i class="fa-solid fa-cart-arrow-down fa-2x mb-2 text-secondary"></i><br>Kotretan kosong. Silakan gunakan panel kontrol di atas untuk menambah artikel.</td></tr>`;
+      return;
+    }
+
+    if (filteredData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" class="text-muted py-4"><i class="fa-solid fa-filter-circle-xmark fa-2x mb-2 text-warning"></i><br>Tidak ada artikel di tabel yang cocok dengan filter pencarian saat ini.</td></tr>`;
+      return;
+    }
+
+    var html = "";
+    filteredData.forEach(r => {
+      var cellsSizeHtml = "";
+      if (r.isBag) {
+        cellsSizeHtml = `<td colspan="5" class="bg-light font-monospace fw-bold text-primary">ALL SIZE [ ${r.allsize} pcs ]</td>`;
+      } else {
+        cellsSizeHtml = `<td class="font-monospace">${r.s_28}</td><td class="font-monospace">${r.m_30}</td><td class="font-monospace">${r.l_32}</td><td class="font-monospace">${r.xl_34}</td><td class="font-monospace">${r.xxl}</td>`;
+      }
+      var badgeTipe = r.status.toLowerCase().includes('fake') ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis';
+
+      html += `
+        <tr>
+          <td class="text-start fw-bold text-uppercase small">${r.kategori}</td>
+          <td class="text-start fw-bold text-dark text-wrap">${r.nama}</td>
+          <td class="font-monospace text-start text-primary small">${r.sku}</td>
+          <td><span class="badge ${badgeTipe} border d-block mb-1">${r.status}</span><span class="badge bg-light text-dark border">${r.warna}</span></td>
+          ${cellsSizeHtml}
+          <td class="fw-bold text-dark bg-light">${r.total}</td>
+          <td class="exclude-export"><button class="btn btn-sm btn-outline-danger" onclick="hapusDariKotretan('${r.sku}')"><i class="fa-solid fa-times"></i></button></td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+  }
+
+  // FUNGSI UTAMA LOGIKA FILTER KETIKAN INTERNAL TABEL
+  function filterTabelInternal() {
+    var input = document.getElementById('searchTableText');
+    var btn = document.getElementById('btnClearSearchTable');
+    if (btn) {
+      if (input && input.value.trim() !== "") {
+        btn.style.setProperty('display', 'block', 'important');
+      } else {
+        btn.style.setProperty('display', 'none', 'important');
+      }
+    }
+    renderTabelKotretan();
+  }
+
+  function clearSearchTableInternal() {
+    var input = document.getElementById('searchTableText');
+    if (input) { input.value = ""; }
+    var btn = document.getElementById('btnClearSearchTable');
+    if (btn) btn.style.setProperty('display', 'none', 'important');
+    renderTabelKotretan();
+  }
+
+  function exportMonitorToExcel() {
+    var viewFilter = document.getElementById('viewFilterStatus').value;
+    var searchKeyword = document.getElementById('searchTableText').value.toLowerCase().trim();
+    
+    var filteredData = buildFilteredObjectsList().filter(r => {
+      var matchStatus = (viewFilter === "Semua" || r.status === viewFilter);
+      var matchText = searchKeyword === "" ? true : (r.sku.toLowerCase().includes(searchKeyword) || r.nama.toLowerCase().includes(searchKeyword));
+      return matchStatus && matchText;
+    });
+    
+    if(filteredData.length === 0) { Swal.fire('Tabel Kosong', 'Tidak ada data yang cocok untuk diexport.', 'warning'); return; }
+    
+    var tgl = new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'});
+    var fileName = `TARGET_STOK_${activeVendorName.replace(/\s+/g, '_')}.xlsx`;
+
+    var wsData = [
+      ["LAPORAN TARGET ALOKASI PRODUKSI - SCRMS GASKEUN"],
+      ["NAMA VENDOR:", activeVendorName],
+      ["TANGGAL:", tgl],
+      ["FILTER AKTIF:", `Tipe: ${viewFilter} | Pencarian: ${searchKeyword || '-'}`],
+      []
+    ];
+
+    wsData.push(["KATEGORI", "NAMA ARTIKEL", "SKU", "TIPE STOK", "WARNA", "S / 28", "M / 30", "L / 32", "XL / 34", "XXL", "TOTAL QTY"]);
+
+    filteredData.forEach(r => {
+      if (r.isBag) {
+         wsData.push([r.kategori, r.nama, r.sku, r.status, r.warna, `ALL SIZE (${r.allsize} pcs)`, "", "", "", "", r.total]);
+      } else {
+         wsData.push([r.kategori, r.nama, r.sku, r.status, r.warna, r.s_28, r.m_30, r.l_32, r.xl_34, r.xxl, r.total]);
+      }
+    });
+
+    var wb = XLSX.utils.book_new(); var ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, "TARGET_STOK"); XLSX.writeFile(wb, fileName);
+  }
+
+  function exportMonitorToPDF() {
+    var viewFilter = document.getElementById('viewFilterStatus').value;
+    var searchKeyword = document.getElementById('searchTableText').value.toLowerCase().trim();
+    
+    var filteredData = buildFilteredObjectsList().filter(r => {
+      var matchStatus = (viewFilter === "Semua" || r.status === viewFilter);
+      var matchText = searchKeyword === "" ? true : (r.sku.toLowerCase().includes(searchKeyword) || r.nama.toLowerCase().includes(searchKeyword));
+      return matchStatus && matchText;
+    });
+
+    if(filteredData.length === 0) { Swal.fire('Tabel Kosong', 'Tidak ada data untuk diexport.', 'warning'); return; }
+    
+    var tglLaporan = new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'});
+    const { jsPDF } = window.jspdf; const doc = new jsPDF('landscape'); 
+
+    doc.setFontSize(18); doc.setFont(undefined, 'bold');
+    doc.text("Laporan Target Stok Vendor - SCRMS Gaskeun", 14, 22);
+    doc.setFontSize(11); doc.setFont(undefined, 'normal');
+    doc.text(`Nama Vendor: ${activeVendorName}`, 14, 30);
+    doc.text(`Tanggal Laporan: ${tglLaporan} | Filter: ${viewFilter} | Kata Kunci: ${searchKeyword || '-'}`, 14, 36);
+
+    var bodyData = [];
+    filteredData.forEach(r => {
+      if(r.isBag) {
+        bodyData.push([r.kategori, r.nama, r.sku, `${r.status}\n${r.warna}`, `ALL SIZE (${r.allsize} pcs)`, "", "", "", "", r.total.toString()]);
+      } else {
+        bodyData.push([r.kategori, r.nama, r.sku, `${r.status}\n${r.warna}`, r.s_28.toString(), r.m_30.toString(), r.l_32.toString(), r.xl_34.toString(), r.xxl.toString(), r.total.toString()]);
+      }
+    });
+
+    doc.autoTable({
+      startY: 42,
+      head: [['Kategori', 'Nama Artikel', 'SKU', 'Tipe & Warna', 'S / 28', 'M / 30', 'L / 32', 'XL / 34', 'XXL', 'Total Qty']],
+      body: bodyData, theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, halign: 'center' },
+      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'left' }, 4: { halign: 'center' }, 5: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'center' }, 8: { halign: 'center' }, 9: { halign: 'center', fontStyle: 'bold' } },
+      styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
+      didParseCell: function (data) {
+        if (data.row.section === 'body' && data.cell.text[0] && data.cell.text[0].startsWith('ALL SIZE')) {
+           if (data.column.index === 4) { data.cell.colSpan = 5; data.cell.styles.halign = 'center'; data.cell.styles.fontStyle = 'bold'; }
+        }
+      }
+    });
+    doc.save(`Target_Stok_${activeVendorName.replace(/\s+/g, '_')}.pdf`);
+  }
+
+  // Pemicu otomatis load data
+  setTimeout(function() { inisialisasiDropdownMonitorVendor(); }, 500);
+</script>
