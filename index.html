@@ -63,20 +63,24 @@
   loadPage('ViewHero', 'content-Hero');
   loadPage('ViewVendor', 'content-Vendor');
 
-  // Fungsi utama untuk mengambil data dari Google Sheets
+  // Menggunakan JSONP untuk menembus proteksi CORS Google
   function ambilDataDariGoogle() {
-    var urlWebApp = "https://script.google.com/macros/s/AKfycbxpjTk3CejT6upbyu0pfFjtW1kF-CPYV321mB1DlB0SfyzDx6HaRRWuHDEPgUp23vDM/exec";
+    var urlWebApp = "https://script.google.com/macros/s/AKfycbwSvzVtT4Xrl01yVfY_05_VY45zRv3KWADNpt2x7YBnNJ1aa483TsWdYO9--TnSYt79/exec?callback=handleGoogleSheetsData";
     
-    fetch(urlWebApp, { method: 'GET', redirect: 'follow' })
-      .then(res => res.json())
-      .then(data => {
-        console.log("Data sukses diambil dari Google Sheets:", data);
-        
-        // KODE PENTING: Di sini Anda bisa memasukkan logika untuk 
-        // menampilkan data ke tabel atau elemen di ViewHero Anda.
-        // Contoh: menampilkan jumlah baris data di konsol browser.
-      })
-      .catch(err => console.error("Gagal mengambil data dari Google:", err));
+    var script = document.createElement('script');
+    script.src = urlWebApp;
+    document.body.appendChild(script);
+  }
+
+  // Fungsi penampung data yang dipanggil otomatis oleh JSONP
+  function handleGoogleSheetsData(data) {
+    if (data.error) {
+      console.error("Gagal mengambil data dari Google:", data.error);
+      return;
+    }
+    console.log("Data sukses diambil dari Google Sheets via JSONP:", data);
+    globalData = data; 
+    loadDashboardData();
   }
 </script>
     </div>
