@@ -595,13 +595,27 @@
   }
   
   function eksekusiTogglePrioritas(skuTarget, statusPrioritasBaru) {
-    Swal.fire({ title: 'Memperbarui Prioritas...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-    setTimeout(function() {
-      Swal.close();
-      globalData.forEach(function(item) { if(item.sku === skuTarget) item.isPriority = statusPrioritasBaru; });
-      renderCards();
-    }, 500);
-  }
+  // 1. Tampilkan notifikasi loading instan
+  Swal.fire({ 
+    title: 'Memperbarui Prioritas (Mode Lokal)...', 
+    timer: 600,
+    showConfirmButton: false,
+    allowOutsideClick: false, 
+    didOpen: () => { Swal.showLoading(); } 
+  });
+  
+  // 2. Langsung ubah status prioritas di dalam data lokal globalData saat itu juga
+  globalData.forEach(function(item) { 
+    if(item.sku === skuTarget) {
+      item.isPriority = statusPrioritasBaru; 
+    }
+  });
+  
+  // 3. Pemicu gambar ulang kartu di layar setelah data berubah
+  setTimeout(function() {
+    renderCards();
+  }, 300);
+}
 
   function bukaLogHistory(sku) {
     var matchArt = globalData.find(function(i) { return i.sku === sku; });
