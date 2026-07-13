@@ -39,8 +39,62 @@
     </ul>
 
     <div class="tab-content">
-      <div id="content-Hero" class="tab-pane active"></div>
-      <div class="tab-pane fade show active" id="dashPage">
+      <div class="tab-pane fade show active" id="heroPage">
+  <div class="pc-card mb-4 border-top border-danger border-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h4 class="mb-1 fw-bold text-dark"><i class="fa-solid fa-fire text-danger me-2"></i>Monitoring Artikel Hero</h4>
+        <span class="text-muted small">Target dihitung dari total stok artikel (akumulasi semua size).</span>
+      </div>
+      <div>
+        <span class="badge bg-light text-dark border px-3 py-2 fs-6">Target Ketahanan Aman: <strong class="text-danger" id="displayBufferHero">- Hari</strong></span>
+      </div>
+    </div>
+    
+    <div class="row g-3 mb-4">
+      <div class="col-md-4"><div class="recap-card bg-gradient-primary"><div class="d-flex justify-content-between align-items-center"><div><h6 class="mb-1 text-white-50 text-uppercase fw-bold">Total Hero</h6><h2 class="mb-0 fw-bold" id="heroCountTotal">0</h2></div><i class="fa-solid fa-crown fa-3x opacity-50"></i></div></div></div>
+      <div class="col-md-4"><div class="recap-card bg-gradient-danger"><div class="d-flex justify-content-between align-items-center"><div><h6 class="mb-1 text-white-50 text-uppercase fw-bold">Status Kritis</h6><h2 class="mb-0 fw-bold" id="heroCountKritis">0</h2></div><i class="fa-solid fa-triangle-exclamation fa-3x opacity-50"></i></div></div></div>
+      <div class="col-md-4"><div class="recap-card bg-gradient-success"><div class="d-flex justify-content-between align-items-center"><div><h6 class="mb-1 text-white-50 text-uppercase fw-bold">Status Aman</h6><h2 class="mb-0 fw-bold" id="heroCountAman">0</h2></div><i class="fa-solid fa-check-circle fa-3x opacity-50"></i></div></div></div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-8">
+        <div class="input-group input-group-lg">
+          <span class="input-group-text bg-light border-end-0" style="border-color: #dee2e6;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+          <input type="text" id="searchHero" class="form-control border-start-0 border-end-0" placeholder="Cari nama artikel hero..." onkeyup="filterHeroAlert()">
+          <button class="btn bg-light border border-start-0 text-muted" type="button" id="btnClearSearchHero" onclick="clearSearchHero()" style="display: none; border-color: #dee2e6; z-index: 4;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <select id="filterKategoriHero" class="form-select form-select-lg" onchange="renderHeroAlert()">
+          <option value="">-- Semua Kategori Hero --</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table align-middle table-hover table-master border">
+        <thead>
+          <tr>
+            <th width="20%">Artikel & SKU</th>
+            <th width="10%">Warna</th>
+            <th width="12%" class="text-center">Total Stok</th>
+            <th width="22%">ADS Global & Selisih</th>
+            <th width="10%" class="text-center">Ketahanan</th>
+            <th width="11%" class="text-center">Status</th>
+            <th width="15%" class="text-center">Update Terakhir</th>
+          </tr>
+        </thead>
+        <tbody id="heroAlertBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+      <div class="tab-pane fade" id="dashPage">
   <div class="card p-3 mb-3 bg-white border-0 shadow-sm" style="border-radius:12px;">
     <div class="row align-items-center g-2">
       <div class="col-12 col-md-4">
