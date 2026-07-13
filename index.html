@@ -180,6 +180,12 @@
             renderHeroAlert();
             console.log("Tabel dashboard ViewHero sukses diselaraskan dengan kelonggaran filter!");
             
+            // TAMBAHKAN INI: Pemicu otomatis untuk halaman Vendor Display
+            if (typeof renderCards === "function") {
+                renderCards();
+                console.log("Kartu Vendor Display sukses dirender otomatis!");
+            }
+
         } else {
             if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
         }
