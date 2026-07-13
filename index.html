@@ -488,7 +488,7 @@
           sizes: []
         };
       }
-      grouped[item.sku].sizes.push({ size: "ALL SIZE", qty: item.qty, tren: item.tren });
+      grouped[item.sku].sizes.push({ size: item.size, qty: item.qty, tren: item.tren });
     });
     
     var keys = Object.keys(grouped);
