@@ -488,7 +488,11 @@
           sizes: []
         };
       }
-      grouped[item.sku].sizes.push({ size: item.size, qty: item.qty, tren: item.tren });
+      grouped[item.sku].sizes.push({ 
+  size: item.size || item.Size || item.ukuran || "ALL SIZE", 
+  qty: (typeof item.qty !== 'undefined' ? item.qty : (typeof item.Qty !== 'undefined' ? item.Qty : item.jumlah)) || 0, 
+  tren: item.tren || item.Tren || "" 
+});
     });
     
     var keys = Object.keys(grouped);
