@@ -31,16 +31,19 @@
 </div>
 
 <script>
-  // PENGAMAN: Deklarasikan variabel kategori aktif agar tidak memicu ReferenceError
-  var activeCategory = activeCategory || "";
+  // PENGAMAN UTAMA: Daftarkan ke object window agar tidak terjadi ReferenceError
+  if (typeof window.activeCategory === 'undefined') {
+      window.activeCategory = "";
+  }
 
-  // Fungsi pembuat tab kategori secara otomatis dan dinamis
   function buildCategoryTabs(categories) {
     var tabHtml = "";
     if(categories && categories.length > 0) {
-      if(!activeCategory || !categories.includes(activeCategory)) activeCategory = categories[0];
+      if(!window.activeCategory || !categories.includes(window.activeCategory)) {
+          window.activeCategory = categories[0];
+      }
       categories.forEach(function(cat) {
-        var activeClass = cat === activeCategory ? 'active fw-bold' : '';
+        var activeClass = cat === window.activeCategory ? 'active fw-bold' : '';
         tabHtml += `<li class="nav-item"><button class="nav-link ${activeClass}" onclick="switchCategory('${cat}')" type="button" style="border:none; border-radius:8px; margin-right:5px;">${cat}</button></li>`;
       });
     }
@@ -50,72 +53,39 @@
   }
 
   function switchCategory(cat) {
-    activeCategory = cat;
-    // Ambil list kategori terupdate yang ada di memori
-    var uniqueCategories = Array.from(new Set(globalData.map(function(item) { return item.kategori; }))).sort();
+    window.activeCategory = cat;
+    var uniqueCategories = Array.from(new Set(globalData.map(function(item) { return item.kategori; }))).filter(Boolean).sort();
     buildCategoryTabs(uniqueCategories);
   }
 
-  function updateUITextBuffers() {
-    var elDisp = document.getElementById('displayBufferVendor');
-    var vendorBufferDays = (typeof GLOBAL_VENDOR_BUFFER !== 'undefined') ? GLOBAL_VENDOR_BUFFER : 7;
-    if(elDisp) elDisp.innerText = vendorBufferDays + " Hari";
-  }
-
-  /// FUNGSI UTAMA PENGGAMBAR KARTU STOK VENDOR
+  // FUNGSI UTAMA PENGGAMBAR KARTU STOK VENDOR
   function renderCards() {
     var container = document.getElementById('articlesContainer');
+    if(!container) return; // Radar interval akan mengurus ini jika belum ada
     
-    // PERBAIKAN MUTLAK: Jika articlesContainer belum ada/null, kita buatkan wadah darurat di dalam dashPage
-    if (!container) {
-        var dashPage = document.getElementById('dashPage');
-        if (dashPage) {
-            // Buat elemen div baru untuk menampung kartu-kartu vendor
-            container = document.createElement('div');
-            container.id = 'articlesContainer';
-            dashPage.appendChild(container);
-            console.log("Wadah articlesContainer berhasil dibuat otomatis!");
-        } else {
-            // Jika dashPage juga belum siap, jadwalkan ulang dengan sabar
-            setTimeout(renderCards, 200);
-            return;
-        }
-    }
-    
-    // Cek ketersediaan data global
+    // Tunggu sampai data Sheets benar-benar ditarik oleh sistem
     if (typeof globalData === 'undefined' || !globalData || globalData.length === 0) {
-        container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x mb-3"></i>Menunggu data Google Sheets...</div>';
-        setTimeout(renderCards, 300);
+        container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x mb-3"></i><br>Menunggu sinkronisasi data Google Sheets...</div>';
         return;
     }
-    
-    var keyword = document.getElementById('searchArt') ? document.getElementById('searchArt').value.toLowerCase().trim() : "";
     
     var keyword = document.getElementById('searchArt') ? document.getElementById('searchArt').value.toLowerCase().trim() : "";
     var vendorBufferDays = (typeof GLOBAL_VENDOR_BUFFER !== 'undefined') ? GLOBAL_VENDOR_BUFFER : 7;
     var filterPrioChecked = document.getElementById('filterPrioOnly') ? document.getElementById('filterPrioOnly').checked : false;
     
-    // Tampilkan info batas aman vendor di UI atas
     var elDisp = document.getElementById('displayBufferVendor');
     if(elDisp) elDisp.innerText = vendorBufferDays + " Hari";
 
-    // Ambil semua daftar kategori unik dari data global
     var uniqueCategories = Array.from(new Set(globalData.map(function(item) { return item.kategori; }))).filter(Boolean).sort();
 
-    // Jika activeCategory masih kosong atau tidak valid, otomatis pilih kategori pertama
     if((!window.activeCategory || window.activeCategory === "") && uniqueCategories.length > 0) {
         window.activeCategory = uniqueCategories[0];
     }
 
-    // Gambar tab kategori di atas
     var tabsEl = document.getElementById('categoryTabs');
-    if(tabsEl && uniqueCategories.length > 0) {
-        var tabHtml = "";
-        uniqueCategories.forEach(function(cat) {
-            var activeClass = cat === window.activeCategory ? 'active fw-bold' : '';
-            tabHtml += `<li class="nav-item"><button class="nav-link ${activeClass}" onclick="switchCategory('${cat}')" type="button" style="border:none; border-radius:8px; margin-right:5px;">${cat}</button></li>`;
-        });
-        tabsEl.innerHTML = tabHtml;
+    if(tabsEl && uniqueCategories.length > 0 && tabsEl.innerHTML === "") {
+        buildCategoryTabs(uniqueCategories);
+        return; // buildCategoryTabs akan memanggil ulang renderCards
     }
     
     var grouped = {};
@@ -123,8 +93,9 @@
     globalData.forEach(function(item) {
       if(!item || !item.sku) return;
       
+      // SARINGAN KATEGORI AKTIF
+      if(item.kategori !== window.activeCategory) return; 
       
-      // Filter pencarian kata kunci SKU/Nama
       if(keyword !== "") {
         var mSku = item.sku.toLowerCase().includes(keyword);
         var mNama = item.nama.toLowerCase().includes(keyword);
@@ -157,7 +128,6 @@
       var badgeClass = art.status.toLowerCase().includes('fake') ? 'badge-fake' : 'badge-real';
       var adaSizeKritis = false;
       var sizeBoxesHtml = "";
-      
       var limitBatasKritis = Math.ceil(art.adsGlobal * vendorBufferDays);
       
       art.sizes.forEach(function(sz) {
@@ -257,16 +227,6 @@
     var namaArtikel = matchArt ? matchArt.nama : sku;
     var dateString = matchArt && matchArt.timestamp !== "-" ? matchArt.timestamp : "Hari Ini";
 
-    var dummyRows = `
-      <tr>
-        <td class="small font-monospace text-start">${dateString}</td>
-        <td class="fw-bold">ALL SIZE</td>
-        <td class="text-secondary font-monospace">${matchArt ? matchArt.qty : 0} → ${matchArt ? matchArt.qty : 0}</td>
-        <td class="fw-bold text-success font-monospace">±0</td>
-        <td class="small text-muted text-start">System Sync</td>
-      </tr>
-    `;
-    
     var tableHtml = `
       <div class="text-start mb-2 small text-muted">SKU: <strong class="text-dark font-monospace">${sku}</strong></div>
       <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
@@ -274,7 +234,15 @@
           <thead class="table-dark sticky-top" style="z-index:1;">
             <tr><th>Waktu</th><th>Size</th><th>Alur Stok</th><th>Perubahan</th><th>Operator</th></tr>
           </thead>
-          <tbody>${dummyRows}</tbody>
+          <tbody>
+            <tr>
+              <td class="small font-monospace text-start">${dateString}</td>
+              <td class="fw-bold">ALL SIZE</td>
+              <td class="text-secondary font-monospace">${matchArt ? matchArt.qty : 0} → ${matchArt ? matchArt.qty : 0}</td>
+              <td class="fw-bold text-success font-monospace">±0</td>
+              <td class="small text-muted text-start">System Sync</td>
+            </tr>
+          </tbody>
         </table>
       </div>
     `;
@@ -293,11 +261,27 @@
     var tabManage = document.getElementById('manage-tab');
     if (tabManage) tabManage.click();
   }
-  
-  // Triger render otomatis saat file HTML selesai terpasang di browser
-  setTimeout(renderCards, 200);
 
-  // TARUH DI SINI (Di bawah setTimeout, sebelum </script>)
-  console.log("Skrip lokal ViewVendor aktif, memicu renderCards...");
-  renderCards();
+  // =========================================================================
+  // RADAR PENDETEKSI UNIVERSAL (UNTUK MAIN APP & LINK PUBLIK VENDOR)
+  // =========================================================================
+  function inisialisasiOtomatisVendor() {
+    var hitungMundur = 0;
+    var intervalId = setInterval(function() {
+      hitungMundur++;
+      // Cek apakah kontainer HTML sudah turun dari langit SPA (GitHub Pages)
+      if (document.getElementById('articlesContainer') && typeof globalData !== 'undefined' && globalData.length > 0) {
+        console.log("Radar ViewVendor mendeteksi DOM dan Data. Memulai render...");
+        renderCards();
+        clearInterval(intervalId);
+      }
+      // Batalkan pencarian jika sudah lewat 10 detik (50 * 200ms) untuk menghemat RAM
+      if (hitungMundur > 50) {
+        clearInterval(intervalId);
+      }
+    }, 200);
+  }
+
+  // Langsung nyalakan radar saat skrip ini dimuat
+  inisialisasiOtomatisVendor();
 </script>
