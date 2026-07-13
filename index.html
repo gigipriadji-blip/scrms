@@ -143,13 +143,12 @@
                 });
 
                 // RE-MAPPING PRESISI BERDASARKAN HASIL CONSOLE LOG NYATA
-                // Menyelaraskan teks spasi agar dibaca oleh mesin cetak tabel ViewHero
                 obj["sku"] = obj["nama artikel"] || obj["kode artikel"] || ""; 
                 obj["nama"] = obj["warna"] || ""; 
                 obj["warna"] = obj["kategori"] || "-";
-                obj["kategori"] = obj["kode artikel"] || "Uncategorized"; // Kategori asli (T-Shirt, Bag, dll)
-                obj["qty"] = parseInt(row[7]) || 0; // Menembak langsung kolom indeks Stok
-                obj["timestamp"] = row[9] || "-"; // Menembak kolom tanggal update
+                obj["kategori"] = obj["kode artikel"] || "Uncategorized"; 
+                obj["qty"] = parseInt(row[7]) || 0; 
+                obj["timestamp"] = row[9] || "-"; 
 
                 // Paksa lolos filter utama
                 obj["isAktif"] = "Aktif"; 
@@ -159,7 +158,6 @@
                 return obj;
             });
 
-            // Set ke memori global aplikasi
             globalData = articles;
 
             // Jalankan mesin penggambar tabel
@@ -169,6 +167,146 @@
         } else {
             if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
         }
+    }
+
+    // FUNGSI PENGGAMBAR TABEL (PASTIKAN MASUK KE RUANG LINGKUP GLOBAL INDEX)
+    function filterHeroAlert() {
+      var input = document.getElementById('searchHero');
+      var btn = document.getElementById('btnClearSearchHero');
+      if (btn) {
+        if (input && input.value.trim() !== "") {
+          btn.style.setProperty('display', 'block', 'important');
+        } else {
+          btn.style.setProperty('display', 'none', 'important');
+        }
+      }
+      renderHeroAlert();
+    }
+
+    function clearSearchHero() {
+      var input = document.getElementById('searchHero');
+      if (input) { input.value = ""; input.focus(); }
+      var btn = document.getElementById('btnClearSearchHero');
+      if (btn) btn.style.setProperty('display', 'none', 'important');
+      renderHeroAlert();
+    }
+
+    function renderHeroAlert() {
+      var tbody = document.getElementById('heroAlertBody');
+      if(!tbody) return;
+      
+      var targetHari = 7;
+      var bufferInput = document.getElementById('inputBufferHero');
+      if (bufferInput && bufferInput.value) {
+        targetHari = parseFloat(bufferInput.value) || 7;
+      }
+      
+      var elDisp = document.getElementById('displayBufferHero');
+      if (elDisp) elDisp.innerText = targetHari + " Hari";
+
+      var searchInput = document.getElementById('searchHero');
+      var searchHero = searchInput ? searchInput.value.toLowerCase() : "";
+      
+      var katInput = document.getElementById('filterKategoriHero');
+      var katFilterHero = katInput ? katInput.value : "";
+      
+      var html = ""; var countTotal = 0; var countAman = 0; var countKritis = 0;
+      var groupedData = {};
+      
+      globalData.forEach(function(item) {
+        if (!item || !item.sku) return;
+        var sku = item.sku;
+        
+        if (!groupedData[sku]) {
+          groupedData[sku] = {
+            kategori: item.kategori || "Uncategorized",
+            sku: sku,
+            nama: item.nama,
+            warna: item.warna || "-",
+            status: item.status,
+            isAktif: item.isAktif,
+            adsGlobal: parseFloat(item.adsGlobal) || 0,
+            totalQty: 0,
+            latestTimestamp: "-",
+            sizes: []
+          };
+        }
+        
+        groupedData[sku].totalQty += parseInt(item.qty) || 0;
+        if(item.timestamp && item.timestamp !== "-") groupedData[sku].latestTimestamp = item.timestamp;
+      });
+
+      var heroArticles = Object.values(groupedData).filter(function(item) {
+        var isHero = item.isAktif === "Aktif" && item.adsGlobal > 0;
+        var matchSearch = item.nama.toLowerCase().includes(searchHero) || item.sku.toLowerCase().includes(searchHero);
+        var matchKat = (katFilterHero === "") || (item.kategori === katFilterHero);
+        return isHero && matchSearch && matchKat;
+      });
+
+      if(heroArticles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fa-solid fa-box-open fa-2x mb-2"></i><br>Tidak ada data Hero Alert saat ini.</td></tr>';
+        if(document.getElementById('heroCountTotal')) document.getElementById('heroCountTotal').innerText = "0";
+        if(document.getElementById('heroCountAman')) document.getElementById('heroCountAman').innerText = "0";
+        if(document.getElementById('heroCountKritis')) document.getElementById('heroCountKritis').innerText = "0";
+        return;
+      }
+
+      var groupedByCategory = {};
+      heroArticles.forEach(function(art) { 
+        if(!groupedByCategory[art.kategori]) groupedByCategory[art.kategori] = []; 
+        groupedByCategory[art.kategori].push(art); 
+      });
+
+      Object.keys(groupedByCategory).sort().forEach(function(kategori) {
+        html += `<tr><td colspan="7" class="bg-light text-dark fw-bold text-uppercase border-bottom py-2" style="font-size:0.85rem;"><i class="fa-solid fa-tags me-2 text-primary"></i>Kategori: ${kategori}</td></tr>`;
+        
+        groupedByCategory[kategori].forEach(function(art) {
+          countTotal++;
+          var curQty = art.totalQty;
+          var curAds = art.adsGlobal;
+          
+          var estimasiHari = curAds > 0 ? Math.floor(curQty / curAds) : 0;
+          var isKritis = estimasiHari < targetHari;
+          if(isKritis) countKritis++; else countAman++;
+          
+          var targetStokAman = curAds * targetHari;
+          var selisih = curQty - targetStokAman; 
+          
+          var badgeStatus = isKritis 
+            ? `<span class="badge bg-danger px-2 py-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>Kritis</span>` 
+            : `<span class="badge bg-success px-2 py-1"><i class="fa-solid fa-check me-1"></i>Aman</span>`;
+          
+          var badgeSelisih = selisih < 0 
+            ? `<span class="badge bg-light text-danger border border-danger ms-2"><i class="fa-solid fa-arrow-down me-1"></i>${Math.abs(selisih)}</span>` 
+            : `<span class="badge bg-light text-success border border-success ms-2"><i class="fa-solid fa-arrow-up me-1"></i>+${selisih}</span>`;
+
+          var tglJam = art.latestTimestamp.split(" ");
+          var tglStr = tglJam[0] || "-";
+          var jamStr = tglJam[1] || "";
+
+          html += `
+            <tr>
+              <td class="ps-3"><div class="fw-bold text-dark" style="font-size:0.9rem;">${art.nama}</div><div class="small text-muted font-monospace" style="font-size:0.75rem;">${art.sku}</div></td>
+              <td><span class="badge bg-white text-dark border p-2" style="font-size:0.8rem;">${art.warna || '-'}</span></td>
+              <td class="text-center fw-bold fs-5">${curQty} <span class="text-success small" style="font-size:0.75rem;">▲</span></td>
+              <td class="align-middle"><div class="d-flex align-items-center"><div class="text-dark fw-bold">${curAds} <span class="small fw-normal text-muted">/hr</span></div>${badgeSelisih}</div></td>
+              <td class="text-center fw-bold fs-5 text-dark">${estimasiHari} Hr</td>
+              <td class="text-center align-middle">${badgeStatus}</td>
+              <td class="text-center align-middle">
+                <div class="d-inline-flex align-items-center gap-1 px-2 py-1 bg-light rounded border text-nowrap" style="font-size: 0.75rem;">
+                  <span class="text-dark fw-bold"><i class="fa-regular fa-calendar-check text-muted me-1"></i>${tglStr}</span>
+                  ${jamStr ? `<span class="text-muted">|</span><span class="text-primary fw-bold"><i class="fa-regular fa-clock text-muted me-1"></i>${jamStr}</span>` : ''}
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      });
+      
+      tbody.innerHTML = html;
+      if(document.getElementById('heroCountTotal')) document.getElementById('heroCountTotal').innerText = countTotal;
+      if(document.getElementById('heroCountAman')) document.getElementById('heroCountAman').innerText = countAman;
+      if(document.getElementById('heroCountKritis')) document.getElementById('heroCountKritis').innerText = countKritis;
     }
   </script>
 </body>
