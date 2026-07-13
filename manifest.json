@@ -1,0 +1,7 @@
+{
+  "name": "SCRMS App",
+  "short_name": "SCRMS",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff"
+}
