@@ -165,18 +165,147 @@
             // Timpa memori data global menggunakan array objek yang sudah bersih
             globalData = articles;
 
-            // Jalankan mesin penggambar tabel di modul ViewHero jika sudah menempel
-            if (typeof renderHeroAlert === "function") {
-                renderHeroAlert();
-                console.log("Tabel dashboard ViewHero sukses dirender!");
-            } else {
-                console.warn("Fungsi renderHeroAlert belum tersedia di ruang lingkup.");
-            }
+            // Jalankan mesin penggambar tabel
+            renderHeroAlert();
+            console.log("Tabel dashboard ViewHero sukses dirender!");
             
         } else {
             if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
         }
-    }   
+    }
+
+    // FUNGSI PENGGAMBAR TABEL (DIPINDAHKAN KE INDEX AGAR SELALU TERSEDIA)
+    function filterHeroAlert() {
+      var input = document.getElementById('searchHero');
+      var btn = document.getElementById('btnClearSearchHero');
+      if (btn) {
+        if (input && input.value.trim() !== "") {
+          btn.style.setProperty('display', 'block', 'important');
+        } else {
+          btn.style.setProperty('display', 'none', 'important');
+        }
+      }
+      renderHeroAlert();
+    }
+
+    function clearSearchHero() {
+      var input = document.getElementById('searchHero');
+      if (input) { input.value = ""; input.focus(); }
+      var btn = document.getElementById('btnClearSearchHero');
+      if (btn) btn.style.setProperty('display', 'none', 'important');
+      renderHeroAlert();
+    }
+
+    function renderHeroAlert() {
+      var tbody = document.getElementById('heroAlertBody');
+      if(!tbody) return;
+      
+      var elDisp = document.getElementById('displayBufferHero');
+      var elInput = document.getElementById('inputBufferHero');
+      if (elDisp) {
+        var heroDays = (elInput && elInput.value) ? elInput.value : 14;
+        elDisp.innerText = heroDays + " Hari";
+      }
+
+      var searchInput = document.getElementById('searchHero');
+      var searchHero = searchInput ? searchInput.value.toLowerCase() : "";
+      
+      var katInput = document.getElementById('filterKategoriHero');
+      var katFilterHero = katInput ? katInput.value : "";
+      
+      var bufferInput = document.getElementById('inputBufferHero');
+      var targetHari = bufferInput ? (parseFloat(bufferInput.value) || 14) : 14;
+      
+      var html = ""; var countTotal = 0; var countAman = 0; var countKritis = 0;
+      var groupedData = {};
+      
+      // Memproses pencetakan data dari globalData objek array yang sudah bersih
+      globalData.forEach(function(item) {
+        if (!item || !item.sku) return;
+        var sku = item.sku;
+        
+        if (!groupedData[sku]) {
+          groupedData[sku] = {
+            kategori: item.kategori,
+            sku: sku,
+            nama: item.nama,
+            warna: item.warna,
+            status: item.status,
+            isAktif: item.isAktif,
+            adsGlobal: parseFloat(item.adsGlobal) || 0,
+            totalQty: 0,
+            latestTimestamp: "-",
+            sizes: []
+          };
+        }
+        
+        groupedData[sku].totalQty += parseInt(item.qty) || 0;
+        groupedData[sku].sizes.push({ tren: item.tren });
+        if(item.timestamp && item.timestamp !== "-") groupedData[sku].latestTimestamp = item.timestamp;
+      });
+
+      var heroArticles = Object.values(groupedData).filter(function(item) {
+        var isHero = item.isAktif === "Aktif" && item.adsGlobal > 0;
+        var matchSearch = item.nama.toLowerCase().includes(searchHero) || item.sku.toLowerCase().includes(searchHero);
+        var matchKat = (katFilterHero === "") || (item.kategori === katFilterHero);
+        return isHero && matchSearch && matchKat;
+      });
+
+      if(heroArticles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fa-solid fa-box-open fa-2x mb-2"></i><br>Tidak ada data Hero Alert saat ini.</td></tr>';
+        if(document.getElementById('heroCountTotal')) document.getElementById('heroCountTotal').innerText = "0";
+        if(document.getElementById('heroCountAman')) document.getElementById('heroCountAman').innerText = "0";
+        if(document.getElementById('heroCountKritis')) document.getElementById('heroCountKritis').innerText = "0";
+        return;
+      }
+
+      var groupedByCategory = {};
+      heroArticles.forEach(function(art) { 
+        if(!groupedByCategory[art.kategori]) groupedByCategory[art.kategori] = []; 
+        groupedByCategory[art.kategori].push(art); 
+      });
+
+      Object.keys(groupedByCategory).sort().forEach(function(kategori) {
+        html += `<tr><td colspan="7" class="bg-light text-dark fw-bold text-uppercase border-bottom"><i class="fa-solid fa-tags me-2 text-primary"></i>Kategori: ${kategori}</td></tr>`;
+        groupedByCategory[kategori].forEach(function(art) {
+          countTotal++;
+          var curQty = art.totalQty;
+          var curAds = art.adsGlobal;
+          
+          var estimasiHari = curAds > 0 ? Math.floor(curQty / curAds) : 0;
+          var isKritis = estimasiHari < targetHari;
+          if(isKritis) countKritis++; else countAman++;
+          
+          var targetStokAman = curAds * targetHari;
+          var selisih = curQty - targetStokAman; 
+          
+          var rowClass = isKritis ? 'table-danger' : 'table-success';
+          var textStyle = isKritis ? 'text-danger fw-bold' : 'fw-bold text-success';
+          var iconStatus = isKritis ? '<i class="fa-solid fa-triangle-exclamation text-danger"></i> Kritis' : '<i class="fa-solid fa-check-circle text-success"></i> Aman';
+          
+          var badgeSelisih = selisih < 0 
+            ? `<span class="badge bg-danger ms-3"><i class="fa-solid fa-minus me-1"></i>${Math.abs(selisih)} pcs</span>` 
+            : `<span class="badge bg-success ms-3"><i class="fa-solid fa-plus me-1"></i>+${selisih} pcs</span>`;
+
+          html += `
+            <tr class="${rowClass}">
+              <td class="ps-3"><div class="fw-bold fs-6 text-dark">${art.nama}</div><div class="small text-muted font-monospace">${art.sku}</div></td>
+              <td><span class="badge bg-white text-dark border p-2">${art.warna || '-'}</span></td>
+              <td class="text-center fw-bold fs-4">${curQty}</td>
+              <td class="align-middle"><div class="d-flex align-items-center"><div class="text-primary fw-bold fs-5">${curAds} <span class="small fw-normal text-muted">/hr</span></div>${badgeSelisih}</div></td>
+              <td class="text-center ${textStyle} fs-5">${estimasiHari} Hr</td>
+              <td class="text-center fw-bold">${iconStatus}</td>
+              <td class="text-center align-middle"><span class="small text-muted">${art.latestTimestamp}</span></td>
+            </tr>
+          `;
+        });
+      });
+      
+      tbody.innerHTML = html;
+      if(document.getElementById('heroCountTotal')) document.getElementById('heroCountTotal').innerText = countTotal;
+      if(document.getElementById('heroCountAman')) document.getElementById('heroCountAman').innerText = countAman;
+      if(document.getElementById('heroCountKritis')) document.getElementById('heroCountKritis').innerText = countKritis;
+    }
   </script>
 </body>
 </html>
