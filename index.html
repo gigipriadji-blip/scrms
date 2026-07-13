@@ -40,7 +40,38 @@
 
     <div class="tab-content">
       <div id="content-Hero" class="tab-pane active"></div>
-      <div id="content-Vendor" class="tab-pane"></div>
+      <div class="tab-pane fade" id="dashPage">
+  <div class="card p-3 mb-3 bg-white border-0 shadow-sm" style="border-radius:12px;">
+    <div class="row align-items-center g-2">
+      <div class="col-12 col-md-4">
+        <span class="small fw-bold text-muted">
+          Batas Aman Vendor: <span id="displayBufferVendor" class="text-dark border-bottom border-primary pb-1">- Hari</span>
+        </span>
+      </div>
+      <div class="col-12 col-md-8">
+        <div class="input-group mb-2">
+          <span class="input-group-text bg-white border-end-0" style="border-color: #dee2e6;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+          <input type="text" id="searchArt" class="form-control border-start-0 border-end-0 ps-0" placeholder="Cari SKU atau nama artikel aktif..." onkeyup="filterDisplay()">
+          <button class="btn bg-white border border-start-0 text-muted" type="button" id="btnClearSearchArt" onclick="clearSearchArt()" style="display: none; border-color: #dee2e6; z-index: 4;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="form-check form-switch pt-1">
+          <input class="form-check-input" type="checkbox" id="filterPrioOnly" onchange="filterDisplay()" style="transform: scale(1.2); margin-top: 0.2rem;">
+          <label class="form-check-label fw-bold ms-2 text-dark" for="filterPrioOnly">
+            <i class="fa-solid fa-star text-warning me-1"></i>Tampilkan Hanya Prioritas Produksi
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="sticky-tabs">
+    <ul class="nav nav-tabs mb-3 border-0" id="categoryTabs" role="tablist" style="font-size: 0.9rem;"></ul>
+  </div>
+  <div id="articlesContainer"></div>
+</div>
+
     </div>
 
     <script>
