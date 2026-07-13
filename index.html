@@ -100,9 +100,8 @@
     var WEB_APP_BASE_URL = "";
 
     window.addEventListener('DOMContentLoaded', function() {
-      google.script.run.withSuccessHandler(function(url) {
-        WEB_APP_BASE_URL = url;
-      }).getWebAppUrl();
+    ambilDataDariGoogle();
+});
 
       // PROTEKSI VENDOR & FIX BLANK PAGE
       if (APP_ROLE_MODE === "vendor") {
