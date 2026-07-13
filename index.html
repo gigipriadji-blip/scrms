@@ -136,44 +136,47 @@ if (APP_ROLE_MODE === "vendor") {
         var articles = rows.map(function(row) {
             var obj = {};
             headers.forEach(function(header, index) {
-                // PAKSA SEMUA NAMA KOLOM MENJADI HURUF KECIL
-                var key = header.toString().toLowerCase().trim();
-                obj[key] = row[index];
+                var rawKey = header.toString().trim();
+                
+                // MAPPING PRESISI SENSITIF HURUF BESAR KECIL SESUAI VIEWHERO
+                if (rawKey === "Kode Artikel") {
+                    obj["sku"] = row[index];
+                } else if (rawKey === "Nama Artikel") {
+                    obj["nama"] = row[index];
+                } else if (rawKey === "Stok_Toko") {
+                    obj["qty"] = row[index];
+                } else if (rawKey === "Update_Terakhir") {
+                    obj["timestamp"] = row[index];
+                } else {
+                    // Sisa kolom disesuaikan huruf kecilnya
+                    var key = rawKey.toLowerCase();
+                    obj[key] = row[index];
+                }
             });
-            
-            // Penyesuaian variabel agar dibaca template
-            if(obj.harga_modal) obj.hargaModal = obj.harga_modal;
-            if(obj.harga_jual) obj.hargaJual = obj.harga_jual;
-            if(obj.stok_toko) obj.stok = obj.stok_toko;
+
+            // Menyisipkan variabel khusus CamelCase untuk filter Kritis/Aman
+            obj["isAktif"] = "Aktif"; // Dipaksa aktif karena masuk data artikel utama
+            obj["adsGlobal"] = parseFloat(obj["rata-rata penjualan harian"]) || 1; // Mengisi ADS Global dari kolom penjualan harian
+            obj["tren"] = "▲"; // Default indikator tren
             
             return obj;
         });
 
-        var responseFake = {
-            articles: articles,
-            settings: { hero: 14, vendor: 7 }
-        };
+        // Simpan data hasil olahan ke memori global
+        globalData = articles;
 
-        listArticlesGlobal = responseFake.articles; 
-        GLOBAL_VENDOR_BUFFER = responseFake.settings.vendor;
-
-        var elHero = document.getElementById('inputBufferHero'); if(elHero) elHero.value = responseFake.settings.hero;
-        var elVendor = document.getElementById('inputBufferVendor'); if(elVendor) elVendor.value = responseFake.settings.vendor;
-
-        if(typeof updateUITextBuffers === "function") updateUITextBuffers();
-
-        // Panggil fungsi bawaan untuk merender tabel stok baju
-        if(typeof showArticles === "function") {
-            showArticles(responseFake.articles);
-        } else if(typeof renderTable === "function") {
-            renderTable(responseFake.articles);
+        // Picu otomatis fungsi penggambaran tabel di ViewHero.html jika fungsinya tersedia
+        if (typeof renderHeroAlert === "function") {
+            renderHeroAlert();
+            console.log("Tabel dashboard ViewHero sukses dirender!");
+        } else {
+            console.warn("Fungsi renderHeroAlert belum terdeteksi di ruang lingkup.");
         }
         
-        console.log("Dashboard berhasil menyelaraskan variabel dan memuat data!");
     } else {
         if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
     }
-}        
+}   
     
   </script>
 </body>
