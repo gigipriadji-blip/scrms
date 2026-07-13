@@ -131,36 +131,38 @@
         if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3"></i>Menyusun data katalog...</div>';
 
         if (globalData && globalData.length > 1) {
-            var rows = globalData.slice(1); // Potong baris header yang salah nama
-            
+            var rows = globalData.slice(1); 
             var kategoriSet = new Set();
 
             var articles = rows.map(function(row) {
-                // Pengamanan jika baris kosong atau kolom kurang
-                if (!row || row.length < 12) return null;
+                if (!row || row.length < 8) return null;
 
                 // PEMETAAN BERDASARKAN HURUF KOLOM UTAMA (A=0, B=1, C=2, dst...)
                 var itemKategori = row[1] ? row[1].toString().trim() : "Uncategorized";
-                kategoriSet.add(itemKategori);
-
-                // Gabungkan tanggal jika kolom H berisi timestamp, jika tidak pakai default waktu sekarang
-                var timestampVal = "-";
-                if(row[7] && row[7].toString().includes("-")) {
-                    timestampVal = row[7].toString().trim();
+                if(itemKategori && itemKategori !== "Kategori" && itemKategori !== "") {
+                    kategoriSet.add(itemKategori);
                 }
 
+                // Ambil Nilai ADS Asli dari Kolom L (Indeks 11). Jika kosong/0, cek kolom F (Indeks 5) tempat penyamaran rata-rata
+                var adsVal = parseFloat(row[11]) || parseFloat(row[5]) || 0;
+
+                // Ambil Update Terakhir dari Kolom I (Indeks 8) atau Kolom H (Indeks 7) yang memiliki format tanggal
+                var dateVal = "-";
+                if (row[8] && row[8].toString().includes("/")) dateVal = row[8].toString().trim();
+                else if (row[7] && row[7].toString().includes("/")) dateVal = row[7].toString().trim();
+                else if (row[9] && row[9].toString().includes("/")) dateVal = row[9].toString().trim();
+
                 return {
-                    kategori: itemKategori,                       // Kolom B: Kategori Asli (BAG, T SHIRT)
+                    kategori: itemKategori, 
                     sku: row[2] ? row[2].toString().trim() : "",   // Kolom C: Article Code
                     nama: row[3] ? row[3].toString().trim() : "",  // Kolom D: Article Name
-                    warna: row[5] ? row[5].toString().trim() : "-",// Kolom F: Warna / Color
-                    qty: parseInt(row[7]) || 0,                    // Kolom H: Stok awal (jika angka)
-                    timestamp: timestampVal,                       // Kolom H/I: Update Terakhir
-                    isAktif: row[10] ? row[10].toString().trim() : "", // Kolom K: Status Aktif Aplikasi
-                    adsGlobal: parseFloat(row[11]) || 0,           // Kolom L: ADS Asli dari Sheets
-                    tren: row[9] ? row[9].toString().trim() : "▲"  // Kolom J: Simbol Tren
+                    warna: row[5] && !row[5].toString().includes(".") ? row[5].toString().trim() : "-", // Kolom F jika teks biasa
+                    qty: parseInt(row[7]) || 0,                    // Kolom H: Stok awal
+                    timestamp: dateVal,                            // Tanggal terdeteksi
+                    adsGlobal: adsVal,                             // Nilai ADS Asli
+                    tren: row[9] && (row[9].toString().includes("▲") || row[9].toString().includes("▼")) ? row[9].toString().trim() : "▲"
                 };
-            }).filter(function(item) { return item !== null; });
+            }).filter(function(item) { return item !== null && item.sku !== ""; });
 
             globalData = articles;
 
@@ -176,14 +178,14 @@
 
             // Jalankan mesin penggambar tabel
             renderHeroAlert();
-            console.log("Tabel dashboard ViewHero sukses diselaraskan berdasarkan urutan Abjad Kolom!");
+            console.log("Tabel dashboard ViewHero sukses diselaraskan dengan kelonggaran filter!");
             
         } else {
             if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
         }
     }
 
-    // FUNGSI PENGGAMBAR TABEL (100% SESUAI FORMAT APLIKASI LAMA)
+    // FUNGSI PENGGAMBAR TABEL (100% VISUAL VERSI AWAL)
     function filterHeroAlert() {
       renderHeroAlert();
     }
@@ -221,9 +223,7 @@
       globalData.forEach(function(item) {
         if (!item || !item.sku) return;
         
-        // FILTER KETAT HERO: Hanya yang berstatus Aktif/AKTIF dan memiliki nilai ADS > 0
-        var statusAktif = item.isAktif.toLowerCase();
-        if (statusAktif !== "aktif") return;
+        // KELONGGARAN FILTER HERO: Hilangkan syarat kolom K "Aktif", fokus murni ke item yang memiliki nilai ADS > 0
         if (item.adsGlobal <= 0) return;
 
         var sku = item.sku;
@@ -286,7 +286,6 @@
             ? `<span class="badge bg-light text-danger border border-danger ms-2"><i class="fa-solid fa-arrow-down me-1"></i>${Math.abs(selisih)}</span>` 
             : `<span class="badge bg-light text-success border border-success ms-2"><i class="fa-solid fa-arrow-up me-1"></i>+${selisih}</span>`;
 
-          // Format Tampilan Waktu Terkini
           var tglStr = art.latestTimestamp !== "-" ? art.latestTimestamp : "Belum Update";
 
           html += `
