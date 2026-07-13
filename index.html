@@ -103,82 +103,67 @@
     ambilDataDariGoogle();
 });
 
-      // PROTEKSI VENDOR & FIX BLANK PAGE
-      if (APP_ROLE_MODE === "vendor") {
-        document.querySelectorAll('.menu-internal').forEach(el => el.remove());
-        
-        var pHe = document.getElementById('heroPage'); if(pHe) pHe.remove();
-        var pMa = document.getElementById('masterPage'); if(pMa) pMa.remove();
-        var pMg = document.getElementById('managePage'); if(pMg) pMg.remove();
-        var pVm = document.getElementById('vendorManagePage'); if(pVm) pVm.remove();
-        var pVn = document.getElementById('vendorMonitorPage'); if(pVn) pVn.remove();
-       
-        var welcomeHeader = document.getElementById('vendorWelcomeHeader');
-        if(welcomeHeader) welcomeHeader.classList.remove('d-none');
-        
-        // FIX UTAMA: Paksa dashPage muncul tanpa mencari tombol tab yang sudah dihapus
-        var dashPage = document.getElementById('dashPage');
-        if(dashPage) dashPage.classList.add('show', 'active');
-      }
-      
-      loadDashboardData(); 
-    });
+// PROTEKSI VENDOR & FIX BLANK PAGE
+if (APP_ROLE_MODE === "vendor") {
+    document.querySelectorAll('.menu-internal').forEach(el => el.remove());
+    
+    var pHe = document.getElementById('heroPage'); if(pHe) pHe.remove();
+    var pMa = document.getElementById('masterPage'); if(pMa) pMa.remove();
+    var pMg = document.getElementById('managePage'); if(pMg) pMg.remove();
+    var pVm = document.getElementById('vendorManagePage'); if(pVm) pVm.remove();
+    var pVn = document.getElementById('vendorMonitorPage'); if(pVn) pVn.remove();
+    
+    var welcomeHeader = document.getElementById('vendorWelcomeHeader');
+    if(welcomeHeader) welcomeHeader.classList.remove('d-none');
+    
+    // FIX UTAMA: Paksa dashPage muncul tanpa mencari tombol tab yang sudah dihapus
+    var dashPage = document.getElementById('dashPage');
+    if(dashPage) dashPage.classList.add('show', 'active');
+}
 
     function loadDashboardData() {
-      var artContainer = document.getElementById('articlesContainer');
-      if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3"></i>Menyusun data katalog...</div>';
+    var artContainer = document.getElementById('articlesContainer');
+    if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3"></i>Menyusun data katalog...</div>';
 
-      google.script.run.withSuccessHandler(function(response) {
-        // Fix Struktur Data Baru
-        globalData = response.articles || [];
-        // Simpan patokan hari ke memori agar tidak hilang
-        GLOBAL_VENDOR_BUFFER = (response.settings && response.settings.vendor) ? response.settings.vendor : 7;
+    // MEMPROSES DATA GLOBAL DARI FETCH GOOGLE SHEETS
+    if (globalData && globalData.length > 1) {
+        var headers = globalData[0];
+        var rows = globalData.slice(1);
         
-        var elHero = document.getElementById('inputBufferHero');
-        if(elHero) elHero.value = response.settings.hero;
-        var elVendor = document.getElementById('inputBufferVendor');
-        if(elVendor) elVendor.value = response.settings.vendor;
-        
-        if(typeof updateUITextBuffers === "function") updateUITextBuffers(); 
-        
-        if(APP_ROLE_MODE === "vendor" && TARGET_VENDOR_USER !== "") {
-          google.script.run.withSuccessHandler(function(vendorList) {
-            var match = vendorList.find(v => v.username === TARGET_VENDOR_USER);
-            if(match) {
-              var txtWelcome = document.getElementById('txtNamaVendorWelcome');
-              if(txtWelcome) txtWelcome.innerText = match.nama.toUpperCase();
+        var articles = rows.map(function(row) {
+            var obj = {};
+            headers.forEach(function(header, index) {
+                obj[header] = row[index];
+            });
+            return obj;
+        });
 
-              // Mencegah error jika terketik spasi pada hak akses di DB
-              listKategoriGlobal = match.akses.map(k => k.trim()).sort();
-              globalData = globalData.filter(item => listKategoriGlobal.includes(item.kategori));
+        var responseFake = {
+            articles: articles,
+            settings: { hero: 14, vendor: 7 }
+        };
 
-              var prioToggle = document.getElementById('filterPrioOnly');
-              if(prioToggle) prioToggle.checked = true;
-              
-              if(typeof buildCategoryTabs === "function") buildCategoryTabs(listKategoriGlobal);
-            } else {
-              if(artContainer) artContainer.innerHTML = '<div class="alert alert-danger">Tautan Vendor Tidak Valid atau Akun Telah Dinonaktifkan.</div>';
-            }
-          }).readVendorData();
-        } else {
-          var catSet = new Set();
-          globalData.forEach(item => { if(item.isAktif === "Aktif") catSet.add(item.kategori); });
-          listKategoriGlobal = Array.from(catSet).sort();
-          
-          if(typeof prepareMasterCatalogData === "function") prepareMasterCatalogData();
-          if(typeof buildCategoryTabs === "function") buildCategoryTabs(listKategoriGlobal); 
-          if(typeof buildKategoriDropdown === "function") buildKategoriDropdown(); 
-          if(typeof buildMasterCategoryDropdown === "function") buildMasterCategoryDropdown();
-          
-          if(typeof renderHeroAlert === "function") renderHeroAlert();
-          if(typeof renderCards === "function") renderCards();     
-          
-          if(typeof inisialisasiCheckboxAksesVendor === "function") inisialisasiCheckboxAksesVendor();
-          if(typeof renderVendorManageTable === "function") renderVendorManageTable();
-          if(typeof inisialisasiDropdownMonitorVendor === "function") inisialisasiDropdownMonitorVendor();
+        listArticlesGlobal = responseFake.articles; 
+        GLOBAL_VENDOR_BUFFER = responseFake.settings.vendor;
+
+        var elHero = document.getElementById('inputBufferHero'); if(elHero) elHero.value = responseFake.settings.hero;
+        var elVendor = document.getElementById('inputBufferVendor'); if(elVendor) elVendor.value = responseFake.settings.vendor;
+
+        if(typeof updateUITextBuffers === "function") updateUITextBuffers();
+
+        // Panggil fungsi template untuk menampilkan tabel stok baju
+        if(typeof showArticles === "function") {
+            showArticles(responseFake.articles);
+        } else if(typeof renderTable === "function") {
+            renderTable(responseFake.articles);
         }
-      }).readData();
+        
+        console.log("Dashboard berhasil memuat data stok terbaru!");
+    } else {
+        if(artContainer) artContainer.innerHTML = '<div class="text-center py-5 text-danger">Data di Google Sheets kosong atau gagal dimuat.</div>';
     }
+}          
+    
   </script>
 </body>
 </html>
