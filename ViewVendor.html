@@ -62,23 +62,34 @@
     if(elDisp) elDisp.innerText = vendorBufferDays + " Hari";
   }
 
-  // FUNGSI UTAMA PENGGAMBAR KARTU STOK VENDOR
+  /// FUNGSI UTAMA PENGGAMBAR KARTU STOK VENDOR
   function renderCards() {
     var container = document.getElementById('articlesContainer');
     
-    // Skenario 1: Jika elemen HTML belum siap di layar, minta fungsi menunggu 200ms lalu coba lagi
+    // PERBAIKAN MUTLAK: Jika articlesContainer belum ada/null, kita buatkan wadah darurat di dalam dashPage
     if (!container) {
-        console.log("Kontainer belum siap, mencoba menjadwalkan ulang...");
-        setTimeout(renderCards, 200);
-        return;
+        var dashPage = document.getElementById('dashPage');
+        if (dashPage) {
+            // Buat elemen div baru untuk menampung kartu-kartu vendor
+            container = document.createElement('div');
+            container.id = 'articlesContainer';
+            dashPage.appendChild(container);
+            console.log("Wadah articlesContainer berhasil dibuat otomatis!");
+        } else {
+            // Jika dashPage juga belum siap, jadwalkan ulang dengan sabar
+            setTimeout(renderCards, 200);
+            return;
+        }
     }
     
-    // Skenario 2: Jika data global dari sheets belum masuk, beri pesan loading sambil menunggu data
+    // Cek ketersediaan data global
     if (typeof globalData === 'undefined' || !globalData || globalData.length === 0) {
         container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin fa-2x mb-3"></i>Menunggu data Google Sheets...</div>';
         setTimeout(renderCards, 300);
         return;
     }
+    
+    var keyword = document.getElementById('searchArt') ? document.getElementById('searchArt').value.toLowerCase().trim() : "";
     
     var keyword = document.getElementById('searchArt') ? document.getElementById('searchArt').value.toLowerCase().trim() : "";
     var vendorBufferDays = (typeof GLOBAL_VENDOR_BUFFER !== 'undefined') ? GLOBAL_VENDOR_BUFFER : 7;
