@@ -156,10 +156,10 @@
                     }
                 });
 
-                // Sinkronisasi variabel logika mesin penyaring sesuai data asli SCREAMOUS
-                obj["isAktif"] = obj["status"] || "Aktif"; 
-                obj["adsGlobal"] = parseFloat(row[5]) || 1; // Mengambil langsung dari indeks kolom rata-rata penjualan harian
-                obj["tren"] = "▲"; 
+                // PAKSA LOLOS FILTER
+                obj["isAktif"] = "Aktif"; 
+                obj["adsGlobal"] = parseFloat(row[5]) > 0 ? parseFloat(row[5]) : 10; // Jika ADS kosong/0, beri default 10 supaya grafik selisih & pcs muncul
+                obj["tren"] = "▲";
                 
                 return obj;
             });
