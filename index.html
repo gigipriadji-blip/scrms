@@ -67,7 +67,7 @@
   function ambilDataDariGoogle() {
     var urlWebApp = "https://script.google.com/macros/s/AKfycbxpjTk3CejT6upbyu0pfFjtW1kF-CPYV321mB1DlB0SfyzDx6HaRRWuHDEPgUp23vDM/exec";
     
-    fetch(urlWebApp)
+    fetch(urlWebApp, { method: 'GET', redirect: 'follow' })
       .then(res => res.json())
       .then(data => {
         console.log("Data sukses diambil dari Google Sheets:", data);
