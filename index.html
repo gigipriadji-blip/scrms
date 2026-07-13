@@ -39,13 +39,46 @@
           <li class="nav-item menu-internal"><button class="nav-link" id="vendor-monitor-tab" data-bs-toggle="tab" data-bs-target="#vendorMonitorPage" type="button"><i class="fa-solid fa-chalkboard-user me-2 text-info"></i>Monitor Vendor</button></li>
         </ul>
 
-    <div class="tab-content">
-      <?!= include('ViewHero'); ?>
-      <?!= include('ViewVendor'); ?>
-      <?!= include('ViewMaster'); ?>
-      <?!= include('ViewManage'); ?>
-      <?!= include('ViewVendorManage'); ?>
-      <?!= include('ViewVendorMonitor'); ?>
+    <<div class="tab-content">
+  <div id="content-Hero" class="tab-pane active"></div>
+  <div id="content-Vendor" class="tab-pane"></div>
+</div>
+
+<script>
+  // Fungsi untuk memuat file HTML dari GitHub ke dalam wadah
+  function loadPage(pageName, targetId) {
+    fetch(pageName + '.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById(targetId).innerHTML = html;
+        // Jika yang dimuat adalah halaman ViewHero, langsung ambil data dari Google
+        if(pageName === 'ViewHero') {
+          ambilDataDariGoogle();
+        }
+      })
+      .catch(err => console.error("Gagal memuat halaman: ", err));
+  }
+
+  // Panggil dan muat halaman saat aplikasi pertama kali dibuka
+  loadPage('ViewHero', 'content-Hero');
+  loadPage('ViewVendor', 'content-Vendor');
+
+  // Fungsi utama untuk mengambil data dari Google Sheets
+  function ambilDataDariGoogle() {
+    var urlWebApp = "https://script.google.com/macros/s/AKfycbyWwovzb73IgaXUJ71x9NlGKn5ZhUCXDtK5eMUMYPoh6rerOP8Y8u2nyPKln7QpfAxX/exec";
+    
+    fetch(urlWebApp)
+      .then(res => res.json())
+      .then(data => {
+        console.log("Data sukses diambil dari Google Sheets:", data);
+        
+        // KODE PENTING: Di sini Anda bisa memasukkan logika untuk 
+        // menampilkan data ke tabel atau elemen di ViewHero Anda.
+        // Contoh: menampilkan jumlah baris data di konsol browser.
+      })
+      .catch(err => console.error("Gagal mengambil data dari Google:", err));
+  }
+</script>
     </div>
   </div>
 
